@@ -5,6 +5,8 @@ export interface User {
   name: string
   email: string
   role: 'client' | 'admin' | 'collaborator'
+  /** True when this user also has a Collaborator profile (e.g. client who was added as collaborator) */
+  isCollaborator?: boolean
 }
 
 // Decode JWT token to get user info
@@ -43,12 +45,13 @@ export const getCurrentUser = (): User | null => {
     }
   }
 
-  // Fallback to token data
+  // Fallback to token data (no isCollaborator in token; assume false until /me refreshes)
   return {
     id: decoded.userId,
     email: decoded.email,
     name: decoded.email, // Name not in token, use email as fallback
     role: decoded.role as 'client' | 'admin' | 'collaborator',
+    isCollaborator: false,
   }
 }
 
@@ -67,6 +70,12 @@ export const isAuthenticated = (): boolean => {
 export const hasRole = (role: 'client' | 'admin' | 'collaborator'): boolean => {
   const userRole = getUserRole()
   return userRole === role
+}
+
+// Can access collaborator routes (role is collaborator OR user has a collaborator profile, e.g. client who is also collaborator)
+export const canAccessCollaborator = (): boolean => {
+  const user = getCurrentUser()
+  return user?.role === 'collaborator' || user?.isCollaborator === true
 }
 
 // Store user data

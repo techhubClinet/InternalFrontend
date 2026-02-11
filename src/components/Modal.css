@@ -54,14 +54,14 @@
 .modal-title {
   margin: 0;
   font-size: 1.3rem;
-  color: #e5e7eb;
+  color: #ffffff;
   font-weight: 600;
 }
 
 .modal-close {
   background: transparent;
   border: none;
-  color: #9ca3af;
+  color: #ffffff;
   font-size: 2rem;
   line-height: 1;
   cursor: pointer;
@@ -77,11 +77,23 @@
 
 .modal-close:hover {
   background: rgba(148, 163, 184, 0.1);
-  color: #e5e7eb;
+  color: #ffffff;
 }
 
 .modal-body {
   padding: 1.5rem;
+}
+
+/* Ensure modal form fields feel glassy/transparent on dark background */
+.modal-body input[type="text"],
+.modal-body input[type="email"],
+.modal-body input[type="password"],
+.modal-body textarea {
+  box-shadow: none;
+}
+
+.modal-body textarea::placeholder {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 

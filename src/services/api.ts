@@ -1,6 +1,6 @@
-// Backend API base URL (deployed at frontned-one.vercel.app – repo named "frontend" but this is the backend)
-// If VITE_API_URL is set, it will override this.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://frontned-one.vercel.app/api'
+// Backend API base URL. Default: localhost for local testing.
+// Set VITE_API_URL in .env (e.g. https://your-backend.vercel.app/api) for production.
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {
@@ -289,6 +289,37 @@ class ApiService {
   async unassignCollaborator(projectId: string) {
     return this.request(`/projects/${projectId}/unassign-collaborator`, {
       method: 'POST',
+    })
+  }
+
+  async updateProjectStatus(projectId: string, data: { status: string; notes?: string }) {
+    return this.request(`/projects/${projectId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateProjectSettings(projectId: string, data: { max_revisions: number }) {
+    return this.request(`/projects/${projectId}/settings`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+  }
+
+  async updateCatalogItem(
+    projectId: string,
+    data: {
+      name?: string
+      service_name?: string
+      service_price?: number | string
+      service_description?: string
+      delivery_timeline?: string
+      max_revisions?: number
+    }
+  ) {
+    return this.request(`/projects/${projectId}/catalog`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     })
   }
 

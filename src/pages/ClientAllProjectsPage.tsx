@@ -6,10 +6,12 @@ import { Modal } from '../components/Modal'
 export function ClientAllProjectsPage() {
   const navigate = useNavigate()
   const location = useLocation()
-  const [projects, setProjects] = useState<any[]>([])
+  const [catalog, setCatalog] = useState<any[]>([])
+  const [myOrders, setMyOrders] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [user, setUser] = useState<any>(null)
+  const [activeTab, setActiveTab] = useState<'orders' | 'catalog'>('orders')
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [requestData, setRequestData] = useState({
     description: '',
@@ -49,9 +51,18 @@ export function ClientAllProjectsPage() {
       if (!silent) setLoading(true)
       setError(null)
 
-      // Always load all predefined (simple) services - these are the catalog
+      // Catalog = predefined (simple) services, deduped by name+price
       const simpleResponse: any = await api.getSimpleProjects()
       const allSimple: any[] = simpleResponse.success ? (simpleResponse.data || []) : []
+      const catalogByKey: Record<string, any> = {}
+      for (const p of allSimple) {
+        const key = getServiceKey(p)
+        if (!catalogByKey[key]) catalogByKey[key] = p
+      }
+      const catalogList = Object.values(catalogByKey).sort(
+        (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
+      setCatalog(catalogList)
 
       if (api.isAuthenticated()) {
         try {
@@ -59,54 +70,17 @@ export function ClientAllProjectsPage() {
           if (userResponse.success) setUser(userResponse.data)
           const myResponse: any = await api.getMyProjects()
           const myProjects: any[] = myResponse.success ? (myResponse.data || []) : []
-
-          // Build one list per service (like Fiverr gigs): each service once. If user already has this service, show theirs; else show any project as template (name/price). Multiple users can buy the same service.
-          const byKey: Record<string, { project: any; isMine: boolean }> = {}
-          const projectsByKey: Record<string, any[]> = {}
-          for (const p of allSimple) {
-            const key = getServiceKey(p)
-            if (!projectsByKey[key]) projectsByKey[key] = []
-            projectsByKey[key].push(p)
-          }
-          for (const key of Object.keys(projectsByKey)) {
-            const group = projectsByKey[key]
-            const myProject = myProjects.find((m: any) => getServiceKey(m) === key)
-            byKey[key] = {
-              project: myProject || group[0],
-              isMine: !!myProject,
-            }
-          }
-          let list: { project: any; isMine: boolean }[] = Object.values(byKey)
-          const simpleIds = new Set(list.map((x) => (x.project._id || x.project.id).toString()))
-          for (const m of myProjects) {
-            if (m.project_type === 'custom' && !simpleIds.has((m._id || m.id).toString())) {
-              list.push({ project: m, isMine: true })
-              simpleIds.add((m._id || m.id).toString())
-            }
-          }
-          const sorted = list.sort((a, b) =>
-            new Date((b.project as any).created_at).getTime() - new Date((a.project as any).created_at).getTime()
+          const paidOnly = myProjects.filter((p: any) => p.payment_status === 'paid')
+          const ordersList = paidOnly.sort(
+            (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           )
-          setProjects(sorted)
+          setMyOrders(ordersList)
         } catch (err: any) {
           console.warn('Failed to load your projects:', err)
-          const sorted = allSimple
-            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-            .map((p: any) => ({ project: p, isMine: false }))
-          setProjects(sorted)
+          setMyOrders([])
         }
       } else {
-        // Not logged in: show catalog deduped by service (name+price)
-        const byKey: Record<string, any> = {}
-        for (const p of allSimple) {
-          const key = getServiceKey(p)
-          if (!byKey[key]) byKey[key] = p
-        }
-        const list = Object.values(byKey).map((p: any) => ({ project: p, isMine: false }))
-        const sorted = list.sort((a: any, b: any) =>
-          new Date((b.project as any).created_at).getTime() - new Date((a.project as any).created_at).getTime()
-        )
-        setProjects(sorted)
+        setMyOrders([])
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load projects')
@@ -214,7 +188,7 @@ export function ClientAllProjectsPage() {
     return (
       <section className="page">
         <div style={{ textAlign: 'center', padding: '3rem' }}>
-          <p>Loading your projects...</p>
+          <p>Loading...</p>
         </div>
       </section>
     )
@@ -231,16 +205,87 @@ export function ClientAllProjectsPage() {
     )
   }
 
+  const cardStyle = {
+    display: 'flex' as const,
+    flexDirection: 'column' as const,
+    padding: '1.5rem',
+    background: 'white',
+    border: '1px solid rgba(226, 232, 240, 0.8)',
+    borderRadius: '1rem',
+    textDecoration: 'none' as const,
+    transition: 'all 0.3s ease',
+    cursor: 'pointer' as const,
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    height: '100%' as const,
+  }
+  const handleCardMouseEnter = (e: React.MouseEvent<HTMLElement>) => {
+    e.currentTarget.style.borderColor = '#ea580c'
+    e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
+    e.currentTarget.style.transform = 'translateY(-2px)'
+  }
+  const handleCardMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
+    e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
+    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+    e.currentTarget.style.transform = 'translateY(0)'
+  }
+
   return (
     <section className="page">
       <header className="page-header">
-        <div className="page-kicker">{user ? 'Your Projects' : 'Available Projects'}</div>
-        <h1 className="page-title">{user ? 'All Your Projects' : 'Available Projects'}</h1>
+        <div className="page-kicker">Client</div>
+        <h1 className="page-title">
+          {!user ? 'Buy Services' : activeTab === 'orders' ? 'My Orders' : 'Buy Services'}
+        </h1>
         <p className="page-subtitle">
-          {user 
-            ? 'View and manage all your projects in one place.'
-            : 'Browse available simple projects. Sign up or log in to see your custom projects.'}
+          {!user
+            ? 'Browse the service catalog. Sign in to place orders and see your projects.'
+            : activeTab === 'orders'
+            ? 'Your purchased projects and their status.'
+            : 'Browse and buy from the service catalog.'}
         </p>
+        {user && (
+          <div style={{
+            display: 'flex',
+            gap: '0.25rem',
+            marginTop: '1rem',
+            borderBottom: '1px solid rgba(226, 232, 240, 0.8)'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('orders')}
+              style={{
+                padding: '0.6rem 1.2rem',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                color: activeTab === 'orders' ? '#1d4ed8' : '#64748b',
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'orders' ? '2px solid #1d4ed8' : '2px solid transparent',
+                marginBottom: '-1px',
+                cursor: 'pointer'
+              }}
+            >
+              📦 My Orders
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('catalog')}
+              style={{
+                padding: '0.6rem 1.2rem',
+                fontSize: '0.9rem',
+                fontWeight: '600',
+                color: activeTab === 'catalog' ? '#1d4ed8' : '#64748b',
+                background: 'none',
+                border: 'none',
+                borderBottom: activeTab === 'catalog' ? '2px solid #1d4ed8' : '2px solid transparent',
+                marginBottom: '-1px',
+                cursor: 'pointer'
+              }}
+            >
+              🛒 Buy Services
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="page-body">
@@ -268,11 +313,8 @@ export function ClientAllProjectsPage() {
               </div>
               <button
                 onClick={() => {
-                  if (!api.isAuthenticated()) {
-                    navigate('/login?redirect=/client/all')
-                  } else {
-                    setShowRequestModal(true)
-                  }
+                  if (!api.isAuthenticated()) navigate('/login?redirect=/client/all')
+                  else setShowRequestModal(true)
                 }}
                 style={{
                   padding: '0.6rem 1.2rem',
@@ -290,114 +332,46 @@ export function ClientAllProjectsPage() {
               </button>
             </div>
           )}
-          {!user && (
-            <div style={{
-              padding: '1rem',
-              background: 'rgba(248, 115, 22, 0.08)',
-              border: '1px solid rgba(248, 115, 22, 0.3)',
-              borderRadius: '0.6rem',
-              marginBottom: '1.5rem',
-              textAlign: 'center'
-            }}>
-              <p style={{ margin: 0, fontSize: '0.9rem', color: '#9a3412' }}>
-                💡 <strong>Tip:</strong> These are public simple projects. <Link to="/signup" style={{ color: '#ea580c', textDecoration: 'underline' }}>Sign up</Link> or <Link to="/login" style={{ color: '#ea580c', textDecoration: 'underline' }}>log in</Link> to see your custom projects and manage all your projects.
-              </p>
-            </div>
-          )}
-          {projects.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem' }}>
-              <p style={{ color: '#6b7280' }}>
-                {user ? `No projects found for ${user.email}` : 'No simple projects available at the moment.'}
-              </p>
-            </div>
-          ) : (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-              gap: '1.5rem'
-            }}>
-              {projects.map((item) => {
-                const project = item.project
-                const isMine = item.isMine
-                const projectId = project._id || project.id
-                const cardStyle = {
-                  display: 'flex',
-                  flexDirection: 'column' as const,
-                  padding: '1.5rem',
-                  background: 'white',
-                  border: '1px solid rgba(226, 232, 240, 0.8)',
-                  borderRadius: '1rem',
-                  textDecoration: 'none' as const,
-                  transition: 'all 0.3s ease',
-                  cursor: 'pointer' as const,
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                  height: '100%' as const,
-                }
-                const handleMouseEnter = (e: React.MouseEvent<HTMLElement>) => {
-                  e.currentTarget.style.borderColor = '#ea580c'
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                }
-                const handleMouseLeave = (e: React.MouseEvent<HTMLElement>) => {
-                  e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
-                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
-                  e.currentTarget.style.transform = 'translateY(0)'
-                }
-                const cardContent = (
-                  <>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <h4 style={{ 
-                      margin: '0 0 0.5rem', 
-                      fontSize: '1.25rem', 
-                      fontWeight: '600',
-                      color: '#0f172a',
-                      lineHeight: '1.3'
-                    }}>
-                      {project.name}
-                    </h4>
-                    <p style={{ 
-                      margin: 0, 
-                      fontSize: '0.875rem', 
-                      color: '#64748b',
-                      lineHeight: '1.5'
-                    }}>
-                      {project.project_type === 'custom' ? 'Custom Project' : 'Simple Project'}
-                    </p>
-                  </div>
 
-                  <div style={{ 
-                    marginBottom: '1rem',
-                    paddingBottom: '1rem',
-                    borderBottom: '1px solid rgba(226, 232, 240, 0.8)'
-                  }}>
-                    <div style={{ 
-                      fontSize: '1.75rem', 
-                      fontWeight: '700', 
-                      color: '#ea580c',
-                      marginBottom: '0.5rem'
-                    }}>
-                      {formatAmount(project)}
-                    </div>
-                    {project.delivery_timeline && (
-                      <p style={{ 
-                        margin: 0, 
-                        fontSize: '0.875rem', 
-                        color: '#64748b'
-                      }}>
-                        Delivery: {project.delivery_timeline}
-                      </p>
-                    )}
-                  </div>
-
-                  <div style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column',
-                    gap: '0.5rem',
-                    marginTop: 'auto'
-                  }}>
-                    {api.isAuthenticated() && user && project.client_email === user.email && (
-                      <>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* My Orders (only when logged in and tab selected) */}
+          {user && activeTab === 'orders' && (
+            <>
+              {myOrders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem' }}>
+                  <p style={{ color: '#6b7280', marginBottom: '0.5rem' }}>You don't have any orders yet.</p>
+                  <p style={{ fontSize: '0.9rem', color: '#64748b' }}>
+                    Go to <button type="button" onClick={() => setActiveTab('catalog')} style={{ color: '#1d4ed8', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer' }}>Buy Services</button> to get started.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                  {myOrders.map((project) => {
+                    const projectId = project._id || project.id
+                    return (
+                      <Link
+                        key={projectId}
+                        to={`/client/${projectId}`}
+                        style={cardStyle}
+                        onMouseEnter={handleCardMouseEnter}
+                        onMouseLeave={handleCardMouseLeave}
+                      >
+                        <div style={{ marginBottom: '1rem' }}>
+                          <h4 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: '600', color: '#0f172a', lineHeight: '1.3' }}>
+                            {project.name}
+                          </h4>
+                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: '1.5' }}>
+                            {project.project_type === 'custom' ? 'Custom Project' : project.service_name || 'Service'}
+                          </p>
+                        </div>
+                        <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
+                          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>
+                            {formatAmount(project)}
+                          </div>
+                          {project.delivery_timeline && (
+                            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Delivery: {project.delivery_timeline}</p>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: 'auto' }}>
                           <span style={{
                             padding: '0.375rem 0.75rem',
                             background: `${getStatusColor(project.status)}15`,
@@ -421,79 +395,100 @@ export function ClientAllProjectsPage() {
                             {project.payment_status === 'paid' ? '✓ Paid' : 'Pending'}
                           </span>
                         </div>
-                        <p style={{ 
-                          margin: '0.5rem 0 0', 
-                          fontSize: '0.75rem', 
-                          color: '#94a3b8'
-                        }}>
+                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
                           Started {formatDate(project.created_at)}
                         </p>
-                      </>
-                    )}
-                    {api.isAuthenticated() && user && !isMine && project.project_type !== 'custom' && (
-                      <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
-                        Click to buy this service →
-                      </p>
-                    )}
-                    {!api.isAuthenticated() && (
-                      <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
-                        Sign in to select this project →
-                      </p>
-                    )}
-                  </div>
-                </>
-                )
-                if (!api.isAuthenticated()) {
-                  return (
-                    <div
-                      key={projectId}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => navigate(`/login?redirect=/client/all`)}
-                      onKeyDown={(e) => e.key === 'Enter' && navigate(`/login?redirect=/client/all`)}
-                      style={cardStyle}
-                      onMouseEnter={handleMouseEnter}
-                      onMouseLeave={handleMouseLeave}
-                    >
-                      {cardContent}
-                    </div>
-                  )
-                }
-                if (isMine) {
-                  return (
-                    <Link
-                      key={projectId}
-                      to={`/client/${projectId}`}
-                      style={cardStyle}
-                      onMouseEnter={handleMouseEnter}
-                      onMouseLeave={handleMouseLeave}
-                    >
-                      {cardContent}
-                    </Link>
-                  )
-                }
-                const isStarting = startingProjectId === projectId
-                return (
-                  <div
-                    key={projectId}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleStartService(projectId)}
-                    onKeyDown={(e) => e.key === 'Enter' && !isStarting && handleStartService(projectId)}
-                    style={{ ...cardStyle, opacity: isStarting ? 0.8 : 1, cursor: isStarting ? 'wait' : 'pointer' }}
-                    onMouseEnter={handleMouseEnter}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    {cardContent}
-                    {isStarting && (
-                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
-                        Opening…
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
+                        <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#1d4ed8', fontWeight: '500' }}>
+                          View order →
+                        </p>
+                      </Link>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Buy Services (catalog) – shown when not logged in, or when tab is catalog */}
+          {(!user || activeTab === 'catalog') && (
+            <>
+              {!user && (
+                <div style={{
+                  padding: '1rem',
+                  background: 'rgba(59, 130, 246, 0.08)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  borderRadius: '0.6rem',
+                  marginBottom: '1.5rem',
+                  textAlign: 'center'
+                }}>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#1e40af' }}>
+                    <strong>Sign in</strong> to place orders and see <strong>My Orders</strong>. <Link to="/signup" style={{ color: '#1d4ed8', textDecoration: 'underline' }}>Sign up</Link> or <Link to="/login" style={{ color: '#1d4ed8', textDecoration: 'underline' }}>Log in</Link>
+                  </p>
+                </div>
+              )}
+              {catalog.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem' }}>
+                  <p style={{ color: '#6b7280' }}>No services in the catalog at the moment.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
+                  {catalog.map((project) => {
+                    const projectId = project._id || project.id
+                    if (!api.isAuthenticated()) {
+                      return (
+                        <div
+                          key={projectId}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => navigate('/login?redirect=/client/all')}
+                          onKeyDown={(e) => e.key === 'Enter' && navigate('/login?redirect=/client/all')}
+                          style={cardStyle}
+                          onMouseEnter={handleCardMouseEnter}
+                          onMouseLeave={handleCardMouseLeave}
+                        >
+                          <div style={{ marginBottom: '1rem' }}>
+                            <h4 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: '600', color: '#0f172a', lineHeight: '1.3' }}>{project.name}</h4>
+                            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>{project.service_name || 'Service'}</p>
+                          </div>
+                          <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
+                            <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>{formatAmount(project)}</div>
+                            {project.delivery_timeline && <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Delivery: {project.delivery_timeline}</p>}
+                          </div>
+                          <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>Sign in to buy →</p>
+                        </div>
+                      )
+                    }
+                    const isStarting = startingProjectId === projectId
+                    return (
+                      <div
+                        key={projectId}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => !isStarting && handleStartService(projectId)}
+                        onKeyDown={(e) => e.key === 'Enter' && !isStarting && handleStartService(projectId)}
+                        style={{ ...cardStyle, opacity: isStarting ? 0.8 : 1, cursor: isStarting ? 'wait' : 'pointer' }}
+                        onMouseEnter={handleCardMouseEnter}
+                        onMouseLeave={handleCardMouseLeave}
+                      >
+                        <div style={{ marginBottom: '1rem' }}>
+                          <h4 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: '600', color: '#0f172a', lineHeight: '1.3' }}>{project.name}</h4>
+                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>{project.service_name || 'Service'}</p>
+                        </div>
+                        <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
+                          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>{formatAmount(project)}</div>
+                          {project.delivery_timeline && <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Delivery: {project.delivery_timeline}</p>}
+                        </div>
+                        {isStarting ? (
+                          <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>Opening…</p>
+                        ) : (
+                          <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>Buy this service →</p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

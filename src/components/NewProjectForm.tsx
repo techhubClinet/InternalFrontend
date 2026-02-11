@@ -1,5 +1,7 @@
 import { useState } from 'react'
 
+const DELIVERY_OPTIONS = ['7 days', '14 days', '21 days', '30 days', '45 days', '60 days']
+
 interface NewProjectFormProps {
   onSubmit: (data: {
     name: string
@@ -7,8 +9,11 @@ interface NewProjectFormProps {
     project_type: 'simple' | 'custom'
     service: string
     service_price: string
+    service_description?: string
     amount: string
     deadline: string
+    delivery_timeline?: string
+    max_revisions?: number
   }) => void
   onCancel: () => void
 }
@@ -20,20 +25,26 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
     project_type: 'simple' as 'simple' | 'custom',
     service: '',
     service_price: '',
+    service_description: '',
     amount: '',
-    deadline: ''
+    deadline: '',
+    delivery_timeline: '30 days',
+    max_revisions: 3
   })
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // For simple projects: need name and service (no email needed)
-    // For custom projects: need name and client_email
     if (formData.name) {
       if (formData.project_type === 'simple' && formData.service && formData.service_price) {
-        onSubmit(formData)
-        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', amount: '', deadline: '' })
+        onSubmit({
+          ...formData,
+          delivery_timeline: formData.delivery_timeline,
+          max_revisions: formData.max_revisions,
+          service_description: formData.service_description || undefined
+        })
+        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', service_description: '', amount: '', deadline: '', delivery_timeline: '30 days', max_revisions: 3 })
       } else if (formData.project_type === 'custom' && formData.client_email) {
         onSubmit(formData)
-        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', amount: '', deadline: '' })
+        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', service_description: '', amount: '', deadline: '', delivery_timeline: '30 days', max_revisions: 3 })
       }
     }
   }
@@ -213,6 +224,99 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
               Enter the price for this service (accessible to anyone via link)
             </p>
           </div>
+          <div style={{ marginBottom: '1.2rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontSize: '0.85rem', 
+              color: '#cbd5e1',
+              fontWeight: '500'
+            }}>
+              Description (Optional)
+            </label>
+            <textarea
+              value={formData.service_description}
+              onChange={(e) => setFormData({ ...formData, service_description: e.target.value })}
+              placeholder="What's included, deliverables, etc."
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(15, 23, 42, 0.8)',
+                border: '1px solid rgba(30, 64, 175, 0.4)',
+                borderRadius: '0.6rem',
+                color: '#e5e7eb',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: '1.2rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontSize: '0.85rem', 
+              color: '#cbd5e1',
+              fontWeight: '500'
+            }}>
+              Delivery time *
+            </label>
+            <select
+              value={formData.delivery_timeline}
+              onChange={(e) => setFormData({ ...formData, delivery_timeline: e.target.value })}
+              required
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(15, 23, 42, 0.8)',
+                border: '1px solid rgba(30, 64, 175, 0.4)',
+                borderRadius: '0.6rem',
+                color: '#e5e7eb',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                cursor: 'pointer'
+              }}
+            >
+              {DELIVERY_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+              Generic delivery time for this catalog item (e.g. 7 days, 30 days)
+            </p>
+          </div>
+          <div style={{ marginBottom: '1.2rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontSize: '0.85rem', 
+              color: '#cbd5e1',
+              fontWeight: '500'
+            }}>
+              Number of revisions included *
+            </label>
+            <input
+              type="number"
+              min={0}
+              max={99}
+              value={formData.max_revisions}
+              onChange={(e) => setFormData({ ...formData, max_revisions: parseInt(e.target.value, 10) || 0 })}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(15, 23, 42, 0.8)',
+                border: '1px solid rgba(30, 64, 175, 0.4)',
+                borderRadius: '0.6rem',
+                color: '#e5e7eb',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit'
+              }}
+            />
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+              Revisions included in this package (e.g. Logo package: Delivery 10 days, Revisions 3). Connects to the revision system.
+            </p>
+          </div>
         </>
       )}
 
@@ -253,33 +357,38 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
       </div>
       )}
 
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ 
-          display: 'block', 
-          marginBottom: '0.5rem', 
-          fontSize: '0.85rem', 
-          color: '#cbd5e1',
-          fontWeight: '500'
-        }}>
-          Deadline (Optional)
-        </label>
-        <input
-          type="date"
-          value={formData.deadline}
-          onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            background: 'rgba(15, 23, 42, 0.8)',
-            border: '1px solid rgba(30, 64, 175, 0.4)',
-            borderRadius: '0.6rem',
-            color: '#e5e7eb',
-            fontSize: '0.9rem',
-            fontFamily: 'inherit',
-            cursor: 'pointer'
-          }}
-        />
-      </div>
+      {formData.project_type === 'custom' && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '0.5rem', 
+            fontSize: '0.85rem', 
+            color: '#cbd5e1',
+            fontWeight: '500'
+          }}>
+            Deadline (Optional)
+          </label>
+          <input
+            type="date"
+            value={formData.deadline}
+            onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'rgba(15, 23, 42, 0.8)',
+              border: '1px solid rgba(30, 64, 175, 0.4)',
+              borderRadius: '0.6rem',
+              color: '#e5e7eb',
+              fontSize: '0.9rem',
+              fontFamily: 'inherit',
+              cursor: 'pointer'
+            }}
+          />
+          <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+            Predefined services use delivery time (e.g. 7 days) instead of a calendar deadline.
+          </p>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
         <button

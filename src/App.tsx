@@ -20,7 +20,7 @@ import { CollaboratorProjectsPage } from './pages/CollaboratorProjectsPage'
 import { CollaboratorProjectDetailPage } from './pages/CollaboratorProjectDetailPage'
 import { StripeConnectReturnPage } from './pages/StripeConnectReturnPage'
 import { StripeConnectRefreshPage } from './pages/StripeConnectRefreshPage'
-import { getUserRole, clearUserData } from './utils/auth'
+import { getUserRole, clearUserData, canAccessCollaborator } from './utils/auth'
 import { api } from './services/api'
 import { ProtectedRoute } from './components/ProtectedRoute'
 
@@ -289,11 +289,34 @@ function Navbar() {
   return (
     <header className="app-header">
       <div className="app-brand">
-        <img
-          src="/logo.jpeg"
-          alt="Kanri logo"
-          className="app-logo"
-        />
+        <button
+          type="button"
+          onClick={() => {
+            if (userRole === 'admin') {
+              navigate('/admin/projects')
+            } else if (userRole === 'collaborator') {
+              navigate('/collaborator/projects')
+            } else if (userRole === 'client') {
+              navigate('/client/all')
+            } else {
+              navigate('/')
+            }
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: 0,
+            border: 'none',
+            background: 'transparent',
+            cursor: 'pointer',
+          }}
+        >
+          <img
+            src="/logo.jpeg"
+            alt="Kanri logo"
+            className="app-logo"
+          />
+        </button>
       </div>
           <nav className="app-nav">
         {/* Show links based on role */}
@@ -350,7 +373,7 @@ function Navbar() {
             </Link>
           </>
         )}
-        {userRole === 'collaborator' && (
+        {(userRole === 'collaborator' || canAccessCollaborator()) && (
           <Link className="pill pill-collab" to="/collaborator/projects">
             Collaborator
           </Link>

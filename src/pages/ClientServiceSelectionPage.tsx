@@ -40,14 +40,15 @@ export function ClientServiceSelectionPage() {
         
         // For simple projects, show the service with price from the project
         if (projectData.project_type === 'simple' && projectData.service_price) {
-          // Create a service object from the project data
+          // Create a service object from the project data (predefined catalog item)
           setServices([{
             _id: projectId,
             id: projectId,
             name: projectData.service_name || projectData.name || 'Service',
-            description: `Service for ${projectData.name}`,
+            description: projectData.service_description || `Service for ${projectData.name}`,
             price: projectData.service_price,
-            delivery_timeline: projectData.delivery_timeline || '30 days'
+            delivery_timeline: projectData.delivery_timeline || '30 days',
+            max_revisions: projectData.max_revisions ?? 3
           }])
         } else {
           // For custom projects or if no service_price, load from services API
@@ -293,6 +294,14 @@ export function ClientServiceSelectionPage() {
                     <p style={{ margin: 0, fontSize: '0.9rem', color: '#4b5563', lineHeight: '1.5' }}>
                       {service.description}
                     </p>
+                    {(service.delivery_timeline || (service as any).max_revisions != null) && (
+                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                        {service.delivery_timeline && <span>Delivery: {service.delivery_timeline}</span>}
+                        {(service as any).max_revisions != null && (
+                          <span>{service.delivery_timeline ? ' · ' : ''}Revisions: {(service as any).max_revisions}</span>
+                        )}
+                      </p>
+                    )}
                   </div>
                   <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1d4ed8', marginLeft: '1rem', whiteSpace: 'nowrap' }}>
                     ${service.price?.toLocaleString() || '0'}

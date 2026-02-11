@@ -80,7 +80,13 @@ export function AdminCollaboratorsPage() {
       } else {
         const response: any = await api.createCollaborator(formData)
         if (response.success) {
-          alert('Collaborator created successfully!')
+          const tempPassword = response.data?.temporary_password || formData.password
+          alert(
+            `Collaborator created successfully!\n\n` +
+            `Login details have been sent to their email. You can also share:\n\n` +
+            `Email: ${formData.email.trim()}\n` +
+            `Temporary password: ${tempPassword}`
+          )
           handleCloseModal()
           loadCollaborators()
         } else {
@@ -200,13 +206,35 @@ export function AdminCollaboratorsPage() {
                     }}>
                       {collaborator.first_name} {collaborator.last_name}
                     </h4>
-                    <p style={{ 
-                      margin: 0, 
-                      fontSize: '0.85rem', 
-                      color: '#64748b'
-                    }}>
-                      Team Member
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
+                      {collaborator.email}
                     </p>
+                    {collaborator.temporary_password && (
+                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#475569' }}>
+                        <strong>Password:</strong>{' '}
+                        <code style={{ background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                          {collaborator.temporary_password}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(collaborator.temporary_password)
+                            alert('Password copied to clipboard')
+                          }}
+                          style={{
+                            marginLeft: '6px',
+                            padding: '2px 8px',
+                            fontSize: '0.75rem',
+                            background: '#e2e8f0',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Copy
+                        </button>
+                      </p>
+                    )}
                   </div>
 
                   <div style={{ 
@@ -381,6 +409,52 @@ export function AdminCollaboratorsPage() {
               }}
             />
           </div>
+
+          {editingCollaborator && (editingCollaborator.temporary_password != null && editingCollaborator.temporary_password !== '') && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ 
+                display: 'block', 
+                marginBottom: '0.5rem', 
+                fontSize: '0.85rem', 
+                color: '#cbd5e1',
+                fontWeight: '500'
+              }}>
+                Password (set when created)
+              </label>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.75rem',
+                background: 'rgba(30, 64, 175, 0.1)',
+                border: '1px solid rgba(30, 64, 175, 0.3)',
+                borderRadius: '0.6rem',
+                fontSize: '0.9rem',
+                color: '#e5e7eb'
+              }}>
+                <code style={{ flex: 1, background: 'transparent' }}>{editingCollaborator.temporary_password}</code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(editingCollaborator.temporary_password)
+                    alert('Password copied to clipboard')
+                  }}
+                  style={{
+                    padding: '0.35rem 0.75rem',
+                    fontSize: '0.8rem',
+                    background: '#1d4ed8',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
 
           {!editingCollaborator && (
             <div style={{ marginBottom: '1.5rem' }}>

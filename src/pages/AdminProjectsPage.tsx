@@ -11,6 +11,7 @@ export function AdminProjectsPage() {
   const [activeTab, setActiveTab] = useState<'all' | 'paid' | 'monthly-invoices'>('all')
   const [monthlyInvoices, setMonthlyInvoices] = useState<any[]>([])
   const [loadingMonthlyInvoices, setLoadingMonthlyInvoices] = useState(false)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
   // Frontend base URL used for client access links
   const frontendBaseUrl =
@@ -100,11 +101,14 @@ export function AdminProjectsPage() {
   }
 
   const formatAmount = (project: any) => {
-    if (project.custom_quote_amount) {
-      return `$${project.custom_quote_amount.toLocaleString()}`
+    if (project.project_type === 'simple' && (project.service_price != null && project.service_price !== '')) {
+      return `$${Number(project.service_price).toLocaleString()}`
     }
-    if (project.service_price) {
-      return `$${project.service_price.toLocaleString()}`
+    if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
+      return `$${Number(project.custom_quote_amount).toLocaleString()}`
+    }
+    if (project.service_price != null && project.service_price !== '') {
+      return `$${Number(project.service_price).toLocaleString()}`
     }
     if (project.selected_service && typeof project.selected_service === 'object') {
       return `$${project.selected_service.price?.toLocaleString() || '0'}`
@@ -292,6 +296,53 @@ export function AdminProjectsPage() {
               >
                 Monthly Invoices ({loadingMonthlyInvoices ? '...' : monthlyInvoices.length})
               </button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>View</span>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  padding: '0.15rem',
+                  borderRadius: '999px',
+                  background: 'rgba(15, 23, 42, 0.04)',
+                  border: '1px solid rgba(148, 163, 184, 0.5)',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  style={{
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '999px',
+                    border: 'none',
+                    background: viewMode === 'grid' ? '#0f172a' : 'transparent',
+                    color: viewMode === 'grid' ? '#f9fafb' : '#64748b',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    minWidth: '60px',
+                  }}
+                >
+                  Grid
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  style={{
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: '999px',
+                    border: 'none',
+                    background: viewMode === 'list' ? '#0f172a' : 'transparent',
+                    color: viewMode === 'list' ? '#f9fafb' : '#64748b',
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    minWidth: '60px',
+                  }}
+                >
+                  List
+                </button>
+              </div>
             </div>
             <button 
               onClick={() => setIsNewProjectOpen(true)}
@@ -563,7 +614,7 @@ export function AdminProjectsPage() {
               )
             }
 
-            // Predefined tab: same neat card layout as client (/client/all) – one card per unique service (name + price)
+            // Predefined tab: same neat layout as client catalog, with Grid/List toggle
             if (activeTab === 'all') {
               const serviceKey = (p: any) => `${p.name}|${p.service_price ?? p.custom_quote_amount ?? ''}`
               const byKey: Record<string, any> = {}
@@ -572,81 +623,140 @@ export function AdminProjectsPage() {
                 if (!byKey[key]) byKey[key] = p
               })
               const catalogList = Object.values(byKey)
+              if (viewMode === 'grid') {
+                return (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '1.5rem'
+                  }}>
+                    {catalogList.map((project: any) => {
+                      const projectId = project._id || project.id
+                      const cardStyle = {
+                        display: 'flex',
+                        flexDirection: 'column' as const,
+                        padding: '1.5rem',
+                        background: 'white',
+                        border: '1px solid rgba(226, 232, 240, 0.8)',
+                        borderRadius: '1rem',
+                        textDecoration: 'none' as const,
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer' as const,
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                        height: '100%' as const,
+                        color: 'inherit',
+                      }
+                      return (
+                        <Link
+                          key={projectId}
+                          to={`/admin/projects/${projectId}?edit=catalog`}
+                          style={cardStyle}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = '#ea580c'
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
+                            e.currentTarget.style.transform = 'translateY(-2px)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
+                            e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                            e.currentTarget.style.transform = 'translateY(0)'
+                          }}
+                        >
+                          <div style={{ marginBottom: '1rem' }}>
+                            <h4 style={{
+                              margin: '0 0 0.5rem',
+                              fontSize: '1.25rem',
+                              fontWeight: '600',
+                              color: '#0f172a',
+                              lineHeight: 1.3,
+                            }}>
+                              {project.name}
+                            </h4>
+                            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
+                              Simple Project
+                            </p>
+                          </div>
+                          <div style={{
+                            marginBottom: '1rem',
+                            paddingBottom: '1rem',
+                            borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
+                          }}>
+                            <div style={{
+                              fontSize: '1.75rem',
+                              fontWeight: '700',
+                              color: '#ea580c',
+                              marginBottom: '0.5rem',
+                            }}>
+                              {formatAmount(project)}
+                            </div>
+                            {project.delivery_timeline && (
+                              <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                                Delivery: {project.delivery_timeline}
+                              </p>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
+                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
+                              View project →
+                            </p>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                )
+              }
+
+              // List view for predefined catalog
               return (
                 <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                  gap: '1.5rem'
+                  borderRadius: '0.75rem',
+                  border: '1px solid rgba(226, 232, 240, 0.9)',
+                  overflow: 'hidden',
+                  background: 'white',
                 }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '2fr 1fr 1fr',
+                    padding: '0.6rem 1rem',
+                    borderBottom: '1px solid rgba(226, 232, 240, 0.9)',
+                    background: 'rgba(248, 250, 252, 0.9)',
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.04em',
+                    color: '#94a3b8',
+                    fontWeight: 600,
+                  }}>
+                    <span>Service</span>
+                    <span>Price</span>
+                    <span>Delivery</span>
+                  </div>
                   {catalogList.map((project: any) => {
                     const projectId = project._id || project.id
-                    const cardStyle = {
-                      display: 'flex',
-                      flexDirection: 'column' as const,
-                      padding: '1.5rem',
-                      background: 'white',
-                      border: '1px solid rgba(226, 232, 240, 0.8)',
-                      borderRadius: '1rem',
-                      textDecoration: 'none' as const,
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer' as const,
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                      height: '100%' as const,
-                      color: 'inherit',
-                    }
                     return (
                       <Link
                         key={projectId}
-                        to={`/admin/projects/${projectId}`}
-                        style={cardStyle}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = '#ea580c'
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
-                          e.currentTarget.style.transform = 'translateY(-2px)'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
-                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
-                          e.currentTarget.style.transform = 'translateY(0)'
+                        to={`/admin/projects/${projectId}?edit=catalog`}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '2fr 1fr 1fr',
+                          padding: '0.7rem 1rem',
+                          alignItems: 'center',
+                          textDecoration: 'none',
+                          fontSize: '0.85rem',
+                          color: '#0f172a',
+                          borderBottom: '1px solid rgba(226, 232, 240, 0.7)',
                         }}
                       >
-                        <div style={{ marginBottom: '1rem' }}>
-                          <h4 style={{
-                            margin: '0 0 0.5rem',
-                            fontSize: '1.25rem',
-                            fontWeight: '600',
-                            color: '#0f172a',
-                            lineHeight: 1.3,
-                          }}>
-                            {project.name}
-                          </h4>
-                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
-                            Simple Project
-                          </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                          <span style={{ fontWeight: 500 }}>{project.name}</span>
+                          <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Simple project</span>
                         </div>
-                        <div style={{
-                          marginBottom: '1rem',
-                          paddingBottom: '1rem',
-                          borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
-                        }}>
-                          <div style={{
-                            fontSize: '1.75rem',
-                            fontWeight: '700',
-                            color: '#ea580c',
-                            marginBottom: '0.5rem',
-                          }}>
-                            {formatAmount(project)}
-                          </div>
-                          {project.delivery_timeline && (
-                            <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
-                              Delivery: {project.delivery_timeline}
-                            </p>
-                          )}
+                        <div style={{ fontWeight: 600, color: '#ea580c' }}>
+                          {formatAmount(project)}
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
-                          <p style={{ margin: 0, fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
-                            View project →
-                          </p>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                          {project.delivery_timeline || '—'}
                         </div>
                       </Link>
                     )
@@ -655,124 +765,239 @@ export function AdminProjectsPage() {
               )
             }
 
-            // Paid tab: admin-style cards with status, client, collaborator
+            // Paid tab: admin-style Grid/List, Gmail-like
+            if (viewMode === 'grid') {
+              return (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gap: '1.5rem'
+                }}>
+                  {filteredProjects.map((project: any) => (
+                    <Link
+                      key={project._id || project.id}
+                      to={`/admin/projects/${project._id || project.id}`}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        padding: '1.5rem',
+                        background: 'white',
+                        border: '1px solid rgba(226, 232, 240, 0.8)',
+                        borderRadius: '1rem',
+                        textDecoration: 'none',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                        height: '100%',
+                        color: 'inherit',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.borderColor = '#ea580c'
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
+                        e.currentTarget.style.transform = 'translateY(-2px)'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
+                        e.currentTarget.style.transform = 'translateY(0)'
+                      }}
+                    >
+                      <div style={{ marginBottom: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                          <h4 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', color: '#0f172a', lineHeight: 1.3 }}>
+                            {project.name}
+                          </h4>
+                          {!project.assigned_collaborator && (
+                            <span style={{
+                              padding: '0.25rem 0.6rem',
+                              background: 'rgba(234, 88, 12, 0.15)',
+                              border: '1px solid rgba(234, 88, 12, 0.4)',
+                              borderRadius: '999px',
+                              fontSize: '0.7rem',
+                              fontWeight: '600',
+                              color: '#ea580c',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.02em',
+                            }}>
+                              New
+                            </span>
+                          )}
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
+                          {project.client_name}
+                        </p>
+                      </div>
+                      <div style={{
+                        marginBottom: '1rem',
+                        paddingBottom: '1rem',
+                        borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
+                      }}>
+                        <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>
+                          {formatAmount(project)}
+                        </div>
+                        {project.delivery_timeline && (
+                          <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
+                            Delivery: {project.delivery_timeline}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span style={{
+                            padding: '0.375rem 0.75rem',
+                            background: `${getStatusColor(project.status)}15`,
+                            border: `1px solid ${getStatusColor(project.status)}30`,
+                            borderRadius: '0.5rem',
+                            fontSize: '0.75rem',
+                            color: getStatusColor(project.status),
+                            fontWeight: '500',
+                          }}>
+                            {getStatusLabel(project.status)}
+                          </span>
+                          <span style={{
+                            padding: '0.375rem 0.75rem',
+                            background: `${getPaymentColor(project.payment_status)}15`,
+                            border: `1px solid ${getPaymentColor(project.payment_status)}30`,
+                            borderRadius: '0.5rem',
+                            fontSize: '0.75rem',
+                            color: getPaymentColor(project.payment_status),
+                            fontWeight: '500',
+                          }}>
+                            {project.payment_status === 'paid' ? '✓ Paid' : 'Pending'}
+                          </span>
+                        </div>
+                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
+                          Started {formatDate(project.created_at)}
+                        </p>
+                        {project.assigned_collaborator && (
+                          <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                            Collaborator: {typeof project.assigned_collaborator === 'object'
+                              ? `${project.assigned_collaborator.first_name} ${project.assigned_collaborator.last_name}`
+                              : project.assigned_collaborator}
+                            {project.collaborator_payment_amount && (
+                              <span style={{ marginLeft: '0.5rem', color: '#22c55e' }}>
+                                (${project.collaborator_payment_amount.toLocaleString()})
+                              </span>
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )
+            }
+
+            // List view for paid orders
             return (
               <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                gap: '1.5rem'
+                borderRadius: '0.75rem',
+                border: '1px solid rgba(226, 232, 240, 0.9)',
+                overflow: 'hidden',
+                background: 'white',
               }}>
-                {filteredProjects.map((project: any) => (
-                  <Link
-                    key={project._id || project.id}
-                    to={`/admin/projects/${project._id || project.id}`}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      padding: '1.5rem',
-                      background: 'white',
-                      border: '1px solid rgba(226, 232, 240, 0.8)',
-                      borderRadius: '1rem',
-                      textDecoration: 'none',
-                      transition: 'all 0.3s ease',
-                      cursor: 'pointer',
-                      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                      height: '100%',
-                      color: 'inherit',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#ea580c'
-                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.18)'
-                      e.currentTarget.style.transform = 'translateY(-2px)'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(226, 232, 240, 0.8)'
-                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                    }}
-                  >
-                    <div style={{ marginBottom: '1rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-                        <h4 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '600', color: '#0f172a', lineHeight: 1.3 }}>
-                          {project.name}
-                        </h4>
-                        {!project.assigned_collaborator && (
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '2fr 1.2fr 0.9fr 0.9fr 1.4fr 1fr',
+                  padding: '0.6rem 1rem',
+                  borderBottom: '1px solid rgba(226, 232, 240, 0.9)',
+                  background: 'rgba(248, 250, 252, 0.9)',
+                  fontSize: '0.75rem',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  color: '#94a3b8',
+                  fontWeight: 600,
+                }}>
+                  <span>Project</span>
+                  <span>Client</span>
+                  <span>Amount</span>
+                  <span>Status</span>
+                  <span>Collaborator</span>
+                  <span>Started</span>
+                </div>
+                {filteredProjects.map((project: any) => {
+                  const collaboratorLabel = project.assigned_collaborator && typeof project.assigned_collaborator === 'object'
+                    ? `${project.assigned_collaborator.first_name} ${project.assigned_collaborator.last_name}`
+                    : project.assigned_collaborator || 'Unassigned'
+                  return (
+                    <Link
+                      key={project._id || project.id}
+                      to={`/admin/projects/${project._id || project.id}`}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '2fr 1.2fr 0.9fr 0.9fr 1.4fr 1fr',
+                        padding: '0.7rem 1rem',
+                        alignItems: 'center',
+                        textDecoration: 'none',
+                        fontSize: '0.85rem',
+                        color: '#0f172a',
+                        borderBottom: '1px solid rgba(226, 232, 240, 0.7)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                        <span style={{ fontWeight: 500 }}>{project.name}</span>
+                        {project.assigned_collaborator == null && (
                           <span style={{
-                            padding: '0.25rem 0.6rem',
-                            background: 'rgba(234, 88, 12, 0.15)',
-                            border: '1px solid rgba(234, 88, 12, 0.4)',
-                            borderRadius: '999px',
                             fontSize: '0.7rem',
-                            fontWeight: '600',
                             color: '#ea580c',
+                            fontWeight: 600,
                             textTransform: 'uppercase',
-                            letterSpacing: '0.02em',
+                            letterSpacing: '0.04em',
                           }}>
-                            New
+                            New – no collaborator
                           </span>
                         )}
                       </div>
-                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b', lineHeight: 1.5 }}>
-                        {project.client_name}
-                      </p>
-                    </div>
-                    <div style={{
-                      marginBottom: '1rem',
-                      paddingBottom: '1rem',
-                      borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
-                    }}>
-                      <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                        {project.client_name || '—'}
+                      </div>
+                      <div style={{ fontWeight: 600, color: '#ea580c' }}>
                         {formatAmount(project)}
                       </div>
-                      {project.delivery_timeline && (
-                        <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>
-                          Delivery: {project.delivery_timeline}
-                        </p>
-                      )}
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
                         <span style={{
-                          padding: '0.375rem 0.75rem',
-                          background: `${getStatusColor(project.status)}15`,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '999px',
+                          background: `${getStatusColor(project.status)}12`,
                           border: `1px solid ${getStatusColor(project.status)}30`,
-                          borderRadius: '0.5rem',
-                          fontSize: '0.75rem',
                           color: getStatusColor(project.status),
-                          fontWeight: '500',
+                          fontSize: '0.7rem',
+                          fontWeight: 500,
                         }}>
                           {getStatusLabel(project.status)}
                         </span>
                         <span style={{
-                          padding: '0.375rem 0.75rem',
-                          background: `${getPaymentColor(project.payment_status)}15`,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '999px',
+                          background: `${getPaymentColor(project.payment_status)}12`,
                           border: `1px solid ${getPaymentColor(project.payment_status)}30`,
-                          borderRadius: '0.5rem',
-                          fontSize: '0.75rem',
                           color: getPaymentColor(project.payment_status),
-                          fontWeight: '500',
+                          fontSize: '0.7rem',
+                          fontWeight: 500,
                         }}>
-                          {project.payment_status === 'paid' ? '✓ Paid' : 'Pending'}
+                          {project.payment_status === 'paid' ? 'Paid' : 'Pending'}
                         </span>
                       </div>
-                      <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>
-                        Started {formatDate(project.created_at)}
-                      </p>
-                      {project.assigned_collaborator && (
-                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#64748b' }}>
-                          Collaborator: {typeof project.assigned_collaborator === 'object'
-                            ? `${project.assigned_collaborator.first_name} ${project.assigned_collaborator.last_name}`
-                            : project.assigned_collaborator}
-                          {project.collaborator_payment_amount && (
-                            <span style={{ marginLeft: '0.5rem', color: '#22c55e' }}>
-                              (${project.collaborator_payment_amount.toLocaleString()})
-                            </span>
-                          )}
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                ))}
+                      <div style={{ fontSize: '0.8rem', color: collaboratorLabel === 'Unassigned' ? '#ea580c' : '#64748b' }}>
+                        {collaboratorLabel}
+                        {project.collaborator_payment_amount && (
+                          <span style={{ marginLeft: '0.35rem', color: '#22c55e', fontSize: '0.75rem' }}>
+                            (${project.collaborator_payment_amount.toLocaleString()})
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                        {formatDate(project.created_at)}
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             )
           })()}
@@ -791,13 +1016,16 @@ export function AdminProjectsPage() {
                 method: 'POST',
                 body: JSON.stringify({
                   name: data.name,
-                  client_name: 'Client', // Default client name
+                  client_name: 'Client',
                   client_email: data.project_type === 'custom' ? data.client_email : undefined,
                   project_type: data.project_type,
                   service: data.service || undefined,
                   service_price: data.service_price ? data.service_price.replace('$', '').replace(',', '') : undefined,
+                  service_description: data.service_description || undefined,
                   amount: data.amount ? data.amount.replace('$', '').replace(',', '') : undefined,
-                  deadline: data.deadline || undefined,
+                  deadline: data.project_type === 'custom' ? (data.deadline || undefined) : undefined,
+                  delivery_timeline: data.project_type === 'simple' ? data.delivery_timeline : undefined,
+                  max_revisions: data.project_type === 'simple' && data.max_revisions != null ? data.max_revisions : undefined,
                 }),
               })
               

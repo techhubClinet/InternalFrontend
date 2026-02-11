@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { Modal } from '../components/Modal'
 import { UpdateStatusForm } from '../components/UpdateStatusForm'
@@ -8,18 +8,44 @@ import { api, getApiBaseUrl } from '../services/api'
 export function AdminProjectDetailPage() {
   const { projectId } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const isCatalogEditOnly = searchParams.get('edit') === 'catalog'
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
   const [isCollaboratorModalOpen, setIsCollaboratorModalOpen] = useState(false)
   const [project, setProject] = useState<any>(null)
   const [briefing, setBriefing] = useState<any>(null)
   const [images, setImages] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [maxRevisionsInput, setMaxRevisionsInput] = useState<string>('')
+  const [savingMaxRevisions, setSavingMaxRevisions] = useState(false)
+  const [catalogEdit, setCatalogEdit] = useState<{
+    name: string
+    service_name: string
+    service_price: string
+    service_description: string
+    delivery_timeline: string
+    max_revisions: number
+  } | null>(null)
+  const [savingCatalog, setSavingCatalog] = useState(false)
 
   useEffect(() => {
     if (projectId) {
       loadProjectData()
     }
   }, [projectId])
+
+  useEffect(() => {
+    if (project && project.project_type === 'simple' && isCatalogEditOnly && catalogEdit === null) {
+      setCatalogEdit({
+        name: project.name || '',
+        service_name: project.service_name || '',
+        service_price: project.service_price != null ? String(project.service_price) : '',
+        service_description: project.service_description || '',
+        delivery_timeline: project.delivery_timeline || '30 days',
+        max_revisions: project.max_revisions ?? 3
+      })
+    }
+  }, [project, isCatalogEditOnly])
 
   const loadProjectData = async () => {
     try {
@@ -41,13 +67,7 @@ export function AdminProjectDetailPage() {
     if (!projectId) return
 
     try {
-      const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, notes }),
-      })
-      const responseData: any = await response.json()
-
+      const responseData: any = await api.updateProjectStatus(projectId, { status, notes })
       if (responseData.success) {
         await loadProjectData()
         setIsStatusModalOpen(false)
@@ -276,6 +296,10 @@ export function AdminProjectDetailPage() {
       word-break: break-all;
       font-size: 12px;
       margin: 5px 0;
+      text-decoration: underline;
+    }
+    .image-url:hover {
+      text-decoration: underline;
     }
     .image-notes {
       margin-top: 8px;
@@ -310,13 +334,19 @@ export function AdminProjectDetailPage() {
 
   ${images.length > 0 ? `
   <h2>Reference Images (${images.length})</h2>
-  ${images.map((img: any, idx: number) => `
+  ${images.map((img: any, idx: number) => {
+    const rawUrl = img.url || ''
+    const url = rawUrl.replace(/\s/g, '')
+    const escapedUrl = url.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    const displayUrl = url.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    return `
     <div class="image-item">
       <div class="image-number">Image ${idx + 1}</div>
-      ${img.url ? `<div class="image-url">URL: ${img.url.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : ''}
+      ${url ? `<a href="${escapedUrl}" target="_blank" rel="noopener noreferrer" class="image-url">${displayUrl}</a>` : ''}
       ${img.notes ? `<div class="image-notes">Notes: ${img.notes.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>` : '<div class="image-notes">Notes: No notes provided</div>'}
     </div>
-  `).join('')}
+  `
+  }).join('')}
   ` : ''}
 </body>
 </html>
@@ -373,6 +403,8 @@ export function AdminProjectDetailPage() {
       </section>
     )
   }
+
+  const DELIVERY_OPTIONS = ['7 days', '14 days', '21 days', '30 days', '45 days', '60 days']
 
   if (!project) {
     return (
@@ -437,6 +469,181 @@ export function AdminProjectDetailPage() {
       return project.assigned_collaborator
     }
     return null
+  }
+
+  const handleSaveCatalog = async () => {
+    if (!projectId || project?.project_type !== 'simple' || !catalogEdit) return
+    const priceStr = String(catalogEdit.service_price ?? '').replace(/\$/g, '').replace(/,/g, '').trim()
+    const price = parseFloat(priceStr)
+    if (isNaN(price) || price < 0) {
+      alert('Enter a valid price')
+      return
+    }
+    if (catalogEdit.max_revisions < 0 || catalogEdit.max_revisions > 99) {
+      alert('Revisions must be between 0 and 99')
+      return
+    }
+    setSavingCatalog(true)
+    try {
+      const res: any = await api.updateCatalogItem(projectId, {
+        name: catalogEdit.name.trim(),
+        service_name: catalogEdit.service_name.trim(),
+        service_price: price,
+        service_description: catalogEdit.service_description.trim() || undefined,
+        delivery_timeline: catalogEdit.delivery_timeline,
+        max_revisions: catalogEdit.max_revisions,
+      })
+      if (res.success) {
+        setProject(res.data)
+        setCatalogEdit(null)
+        await loadProjectData()
+        alert('Catalog item updated.')
+      } else throw new Error(res.message)
+    } catch (e: any) {
+      alert(e.message || 'Failed to update catalog')
+    } finally {
+      setSavingCatalog(false)
+    }
+  }
+
+  if (project.project_type === 'simple' && isCatalogEditOnly) {
+    return (
+      <section className="page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '100%' }}>
+        <header className="page-header" style={{ width: '100%', maxWidth: '28rem', margin: '0 auto', textAlign: 'center' }}>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/projects')}
+            style={{
+              marginBottom: '1rem',
+              padding: '0.5rem 0.75rem',
+              background: 'transparent',
+              color: '#64748b',
+              border: '1px solid rgba(100, 116, 139, 0.5)',
+              borderRadius: '0.5rem',
+              fontSize: '0.9rem',
+              cursor: 'pointer'
+            }}
+          >
+            ← Back to projects
+          </button>
+          <div className="page-kicker" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontSize: '0.75rem', marginBottom: '0.25rem' }}>Predefined service</div>
+          <h1 className="page-title" style={{ marginBottom: '0.25rem' }}>Edit catalog item</h1>
+          <p className="page-subtitle" style={{ margin: 0, fontSize: '0.95rem', color: '#64748b' }}>{project.name}</p>
+        </header>
+        <div className="page-body" style={{ width: '100%', maxWidth: '28rem', margin: '0 auto', padding: '0 1rem 2rem', display: 'flex', justifyContent: 'center' }}>
+          {catalogEdit === null ? (
+            <p style={{ color: '#64748b', textAlign: 'center' }}>Loading form...</p>
+          ) : (
+            <div style={{
+              width: '100%',
+              padding: '1.75rem',
+              background: 'transparent',
+              border: '1px solid rgba(226, 232, 240, 0.8)',
+              borderRadius: '1rem',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.06)'
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '500' }}>Project name</label>
+                  <input
+                    value={catalogEdit.name}
+                    onChange={(e) => setCatalogEdit({ ...catalogEdit, name: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', boxSizing: 'border-box', background: 'transparent' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '500' }}>Service name</label>
+                  <input
+                    value={catalogEdit.service_name}
+                    onChange={(e) => setCatalogEdit({ ...catalogEdit, service_name: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', boxSizing: 'border-box', background: 'transparent' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '500' }}>Price</label>
+                  <input
+                    type="text"
+                    value={catalogEdit.service_price}
+                    onChange={(e) => setCatalogEdit({ ...catalogEdit, service_price: e.target.value })}
+                    placeholder="e.g. 4500"
+                    style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', boxSizing: 'border-box', background: 'transparent' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '500' }}>Description</label>
+                  <textarea
+                    value={catalogEdit.service_description}
+                    onChange={(e) => setCatalogEdit({ ...catalogEdit, service_description: e.target.value })}
+                    rows={3}
+                    placeholder="What's included, deliverables..."
+                    style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', background: 'transparent' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '500' }}>Delivery time</label>
+                  <select
+                    value={catalogEdit.delivery_timeline}
+                    onChange={(e) => setCatalogEdit({ ...catalogEdit, delivery_timeline: e.target.value })}
+                    style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', background: 'transparent', cursor: 'pointer' }}
+                  >
+                    {DELIVERY_OPTIONS.map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '500' }}>Revisions included</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={99}
+                    value={catalogEdit.max_revisions}
+                    onChange={(e) => setCatalogEdit({ ...catalogEdit, max_revisions: parseInt(e.target.value, 10) || 0 })}
+                    style={{ width: '6rem', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', background: 'transparent' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(241, 245, 249, 0.8)' }}>
+                  <button
+                    type="button"
+                    disabled={savingCatalog}
+                    onClick={handleSaveCatalog}
+                    style={{
+                      padding: '0.65rem 1.25rem',
+                      background: savingCatalog ? '#94a3b8' : '#ea580c',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      cursor: savingCatalog ? 'not-allowed' : 'pointer',
+                      boxShadow: savingCatalog ? 'none' : '0 1px 3px rgba(234, 88, 12, 0.3)'
+                    }}
+                  >
+                    {savingCatalog ? 'Saving...' : 'Save changes'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/admin/projects')}
+                    style={{
+                      padding: '0.65rem 1.25rem',
+                      background: 'transparent',
+                      color: '#64748b',
+                      border: '1px solid rgba(148, 163, 184, 0.6)',
+                      borderRadius: '0.5rem',
+                      fontSize: '0.9rem',
+                      fontWeight: '500',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -545,6 +752,75 @@ export function AdminProjectDetailPage() {
             </span>
           </div>
 
+          <div style={{
+            marginBottom: '1.5rem',
+            padding: '1rem',
+            background: 'rgba(249, 115, 22, 0.06)',
+            border: '1px solid rgba(249, 115, 22, 0.25)',
+            borderRadius: '0.6rem'
+          }}>
+            <h4 style={{ fontSize: '0.9rem', marginBottom: '0.6rem', color: '#0f172a', fontWeight: '600' }}>
+              Client revisions
+            </h4>
+            <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: '#64748b' }}>
+              Only the client can request revisions from their dashboard. Used: <strong>{(project.revisions_used ?? 0)}</strong> of <strong>{project.max_revisions ?? 3}</strong>.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <label style={{ fontSize: '0.85rem', color: '#4b5563' }}>Max revisions allowed:</label>
+              <input
+                type="number"
+                min={0}
+                max={99}
+                value={maxRevisionsInput !== '' ? maxRevisionsInput : (project.max_revisions ?? 3)}
+                onChange={(e) => setMaxRevisionsInput(e.target.value)}
+                style={{
+                  width: '4rem',
+                  padding: '0.4rem 0.5rem',
+                  border: '1px solid rgba(30, 64, 175, 0.3)',
+                  borderRadius: '0.4rem',
+                  fontSize: '0.9rem'
+                }}
+              />
+              <button
+                type="button"
+                disabled={savingMaxRevisions}
+                onClick={async () => {
+                  const raw = maxRevisionsInput !== '' ? maxRevisionsInput : String(project.max_revisions ?? 3)
+                  const num = parseInt(raw, 10)
+                  if (isNaN(num) || num < 0 || num > 99) {
+                    alert('Enter a number between 0 and 99')
+                    return
+                  }
+                  setSavingMaxRevisions(true)
+                  try {
+                    const res: any = await api.updateProjectSettings(projectId!, { max_revisions: num })
+                    if (res.success) {
+                      setMaxRevisionsInput('')
+                      await loadProjectData()
+                      alert('Max revisions updated.')
+                    } else throw new Error(res.message)
+                  } catch (e: any) {
+                    alert(e.message || 'Failed to update')
+                  } finally {
+                    setSavingMaxRevisions(false)
+                  }
+                }}
+                style={{
+                  padding: '0.4rem 0.8rem',
+                  background: '#ea580c',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '0.4rem',
+                  fontSize: '0.85rem',
+                  fontWeight: '500',
+                  cursor: savingMaxRevisions ? 'not-allowed' : 'pointer'
+                }}
+              >
+                {savingMaxRevisions ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+
           <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#0f172a' }}>
             Client Briefing
           </h3>
@@ -642,13 +918,18 @@ export function AdminProjectDetailPage() {
             <strong style={{ display: 'block', marginBottom: '0.6rem' }}>Project Details</strong>
             <div style={{ fontSize: '0.85rem', lineHeight: '1.8', color: '#4b5563' }}>
               <div><strong>Service:</strong> {
-                project.selected_service && typeof project.selected_service === 'object'
+                project.project_type === 'simple' && project.service_name
+                  ? project.service_name
+                  : project.selected_service && typeof project.selected_service === 'object'
                   ? project.selected_service.name
                   : project.custom_quote_amount
                   ? 'Custom Quote'
                   : 'Not selected'
               }</div>
               <div><strong>Client Amount:</strong> {formatClientAmount()}</div>
+              {project.project_type === 'simple' && project.delivery_timeline && (
+                <div><strong>Delivery:</strong> {project.delivery_timeline}</div>
+              )}
               {project.assigned_collaborator && (
                 <div><strong>Collaborator Payment:</strong> {formatCollaboratorAmount()}</div>
               )}

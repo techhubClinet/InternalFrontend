@@ -13,6 +13,7 @@ export function ClientDashboardPage() {
   const [claimingRevision, setClaimingRevision] = useState(false)
   const [isRevisionModalOpen, setIsRevisionModalOpen] = useState(false)
   const [revisionDescription, setRevisionDescription] = useState('')
+  const [acceptingDelivery, setAcceptingDelivery] = useState(false)
 
   useEffect(() => {
     if (projectId) {
@@ -158,6 +159,25 @@ export function ClientDashboardPage() {
     return { used, max, remaining: max - used }
   }
 
+  const handleAcceptDelivery = async () => {
+    if (!projectId || !project) return
+    if (project.status !== 'review') return
+    try {
+      setAcceptingDelivery(true)
+      const response: any = await api.updateProjectStatus(projectId, { status: 'completed' })
+      if (response.success) {
+        alert('Delivery accepted. Thank you!')
+        await loadProjectData(false)
+      } else {
+        alert(response.message || 'Failed to accept delivery')
+      }
+    } catch (error: any) {
+      alert(error.message || 'Failed to accept delivery. Please make sure you are logged in.')
+    } finally {
+      setAcceptingDelivery(false)
+    }
+  }
+
   if (loading) {
     return (
       <section className="page">
@@ -216,40 +236,108 @@ export function ClientDashboardPage() {
 
       <div className="page-body">
         <div className="page-panel" style={{ gridColumn: '1 / -1' }}>
-          {/* Revisions Section */}
+          {/* Delivery & review – clear section so client knows how delivery works */}
           {project.payment_status === 'paid' && (
             <div style={{
               marginBottom: '2rem',
-              padding: '1.5rem',
-              background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(234, 88, 12, 0.1))',
-              border: '1px solid rgba(249, 115, 22, 0.3)',
-              borderRadius: '0.8rem'
+              padding: '1.5rem 1.75rem',
+              background: 'linear-gradient(135deg, rgba(30, 64, 175, 0.06), rgba(59, 130, 246, 0.06))',
+              border: '1px solid rgba(30, 64, 175, 0.2)',
+              borderRadius: '1rem'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem', color: '#0f172a', fontWeight: '600' }}>
-                    Revisions Available
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#64748b' }}>
-                    You have <strong style={{ color: '#f97316' }}>{getAvailableRevisions().remaining}</strong> of <strong>{getAvailableRevisions().max}</strong> revision(s) remaining
+              <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', color: '#0f172a', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                Delivery for review
+              </h3>
+              <p style={{ margin: '0 0 1.25rem', fontSize: '0.9rem', color: '#64748b' }}>
+                Here is what the team has shared for your review. You can request changes or accept delivery below.
+              </p>
+
+              {/* 📂 Delivered files / links */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem', color: '#0f172a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  📂 Delivered files &amp; links
+                </h4>
+                {(project.status_notes as any)?.review ? (
+                  <div style={{
+                    padding: '1rem',
+                    background: '#ffffff',
+                    border: '1px solid rgba(30, 64, 175, 0.15)',
+                    borderRadius: '0.6rem',
+                    fontSize: '0.9rem',
+                    color: '#0f172a',
+                    lineHeight: '1.6',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word'
+                  }}>
+                    {(project.status_notes as any).review}
+                  </div>
+                ) : (
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                    No delivery files or links shared yet. The team will add them here when the work is ready for your review.
                   </p>
-                </div>
+                )}
+              </div>
+
+              {/* 💬 Comments / team updates */}
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem', color: '#0f172a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  💬 Team updates
+                </h4>
+                {(() => {
+                  const notes = (project.status_notes || {}) as Record<string, string>
+                  const updates = [
+                    notes.in_progress && { stage: 'In progress', text: notes.in_progress },
+                    notes.review && { stage: 'Review', text: notes.review },
+                    notes.revision && { stage: 'Revision', text: notes.revision },
+                    notes.completed && { stage: 'Completed', text: notes.completed }
+                  ].filter(Boolean) as { stage: string; text: string }[]
+                  if (updates.length === 0) {
+                    return (
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                        No updates from the team yet.
+                      </p>
+                    )
+                  }
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {updates.map((u, i) => (
+                        <div
+                          key={i}
+                          style={{
+                            padding: '0.75rem 1rem',
+                            background: '#ffffff',
+                            border: '1px solid rgba(30, 64, 175, 0.12)',
+                            borderRadius: '0.5rem',
+                            fontSize: '0.875rem'
+                          }}
+                        >
+                          <span style={{ fontWeight: '600', color: '#1d4ed8', marginRight: '0.5rem' }}>{u.stage}:</span>
+                          <span style={{ color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{u.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+
+              {/* Actions: Revision + Accept */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid rgba(30, 64, 175, 0.12)' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#0f172a', marginRight: '0.25rem' }}>Your actions:</span>
+                <span style={{ fontSize: '0.8rem', color: '#64748b', marginRight: '0.5rem' }}>
+                  (Revisions: {getAvailableRevisions().remaining} of {getAvailableRevisions().max} left)
+                </span>
                 <button
                   onClick={handleOpenRevisionModal}
                   disabled={getAvailableRevisions().remaining <= 0 || project.status === 'revision'}
                   style={{
-                    padding: '0.75rem 1.5rem',
-                    background: getAvailableRevisions().remaining > 0 && project.status !== 'revision'
-                      ? '#f97316'
-                      : '#94a3b8',
+                    padding: '0.6rem 1.25rem',
+                    background: getAvailableRevisions().remaining > 0 && project.status !== 'revision' ? '#f97316' : '#94a3b8',
                     color: '#ffffff',
                     border: 'none',
                     borderRadius: '0.6rem',
                     fontSize: '0.9rem',
                     fontWeight: '600',
-                    cursor: getAvailableRevisions().remaining > 0 && project.status !== 'revision'
-                      ? 'pointer'
-                      : 'not-allowed',
+                    cursor: getAvailableRevisions().remaining > 0 && project.status !== 'revision' ? 'pointer' : 'not-allowed',
                     transition: 'all 0.2s'
                   }}
                   onMouseEnter={(e) => {
@@ -265,8 +353,44 @@ export function ClientDashboardPage() {
                     }
                   }}
                 >
-                  {project.status === 'revision' ? 'Revision in Progress' : 'Request Revision'}
+                  🔁 {project.status === 'revision' ? 'Revision in progress' : 'Request revision'}
                 </button>
+                {project.status === 'review' && (
+                  <button
+                    onClick={handleAcceptDelivery}
+                    disabled={acceptingDelivery}
+                    style={{
+                      padding: '0.6rem 1.25rem',
+                      background: acceptingDelivery ? '#94a3b8' : '#22c55e',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '0.6rem',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      cursor: acceptingDelivery ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!acceptingDelivery) {
+                        e.currentTarget.style.background = '#16a34a'
+                        e.currentTarget.style.transform = 'translateY(-1px)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!acceptingDelivery) {
+                        e.currentTarget.style.background = '#22c55e'
+                        e.currentTarget.style.transform = 'translateY(0)'
+                      }
+                    }}
+                  >
+                    ✅ {acceptingDelivery ? 'Accepting...' : 'Accept delivery'}
+                  </button>
+                )}
+                {project.status !== 'review' && project.status !== 'revision' && (
+                  <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
+                    Accept button appears when the work is in review.
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -412,7 +536,7 @@ export function ClientDashboardPage() {
         title="Request Revision"
       >
         <div>
-          <p style={{ marginBottom: '1rem', color: '#64748b', fontSize: '0.9rem' }}>
+          <p style={{ marginBottom: '1rem', color: '#ffffff', fontSize: '0.9rem' }}>
             Please provide details about what you'd like to be revised. This will help the collaborator understand your requirements.
           </p>
           <div style={{ marginBottom: '1.5rem' }}>
@@ -420,7 +544,7 @@ export function ClientDashboardPage() {
               display: 'block', 
               marginBottom: '0.5rem', 
               fontSize: '0.85rem', 
-              color: '#0f172a',
+              color: '#ffffff',
               fontWeight: '500'
             }}>
               Revision Description *
@@ -434,10 +558,10 @@ export function ClientDashboardPage() {
                 width: '100%',
                 minHeight: '150px',
                 padding: '0.75rem',
-                background: '#ffffff',
+                background: 'rgba(30, 41, 59, 0.6)',
                 border: '1px solid rgba(148, 163, 184, 0.4)',
                 borderRadius: '0.6rem',
-                color: '#0f172a',
+                color: '#ffffff',
                 fontSize: '0.9rem',
                 fontFamily: 'inherit',
                 resize: 'vertical'
@@ -454,7 +578,7 @@ export function ClientDashboardPage() {
               style={{
                 padding: '0.75rem 1.5rem',
                 background: 'transparent',
-                color: '#64748b',
+                color: '#ffffff',
                 border: '1px solid rgba(148, 163, 184, 0.4)',
                 borderRadius: '0.6rem',
                 fontSize: '0.9rem',

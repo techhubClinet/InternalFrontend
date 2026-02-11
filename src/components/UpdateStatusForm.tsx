@@ -4,9 +4,13 @@ interface UpdateStatusFormProps {
   currentStatus: string
   onSubmit: (status: string, notes?: string) => void
   onCancel: () => void
+  /** If false, "Revision" is hidden. Only the client can request revision via their dashboard. */
+  allowRevision?: boolean
+  /** If false, "Completed" is hidden. Only client (after acceptance) or admin can mark completed. */
+  allowCompleted?: boolean
 }
 
-export function UpdateStatusForm({ currentStatus, onSubmit, onCancel }: UpdateStatusFormProps) {
+export function UpdateStatusForm({ currentStatus, onSubmit, onCancel, allowRevision = true, allowCompleted = true }: UpdateStatusFormProps) {
   const [status, setStatus] = useState(currentStatus)
   const [notes, setNotes] = useState('')
 
@@ -14,8 +18,8 @@ export function UpdateStatusForm({ currentStatus, onSubmit, onCancel }: UpdateSt
     { value: 'pending', label: 'Pending', color: '#64748b' },
     { value: 'in_progress', label: 'In Progress', color: '#1d4ed8' },
     { value: 'review', label: 'Review', color: '#facc15' },
-    { value: 'revision', label: 'Revision', color: '#f97316' },
-    { value: 'completed', label: 'Completed', color: '#22c55e' }
+    ...(allowRevision ? [{ value: 'revision', label: 'Revision', color: '#f97316' }] : []),
+    ...(allowCompleted ? [{ value: 'completed', label: 'Completed', color: '#22c55e' }] : [])
   ]
 
   const handleSubmit = (e: React.FormEvent) => {

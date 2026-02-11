@@ -221,16 +221,7 @@ export function CollaboratorProjectDetailPage() {
     if (!projectId) return
 
     try {
-      const response = await fetch(
-        `${getApiBaseUrl()}/projects/${projectId}/status`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, notes }),
-        }
-      )
-      const responseData: any = await response.json()
-
+      const responseData: any = await api.updateProjectStatus(projectId, { status, notes })
       if (responseData.success) {
         await loadProjectData()
         setIsStatusModalOpen(false)
@@ -720,6 +711,8 @@ export function CollaboratorProjectDetailPage() {
           currentStatus={project.status}
           onSubmit={handleStatusUpdate}
           onCancel={() => setIsStatusModalOpen(false)}
+          allowRevision={false}
+          allowCompleted={false}
         />
       </Modal>
 
