@@ -1,6 +1,6 @@
-// Backend API base URL. Default: localhost for local testing.
-// Set VITE_API_URL in .env (e.g. https://your-backend.vercel.app/api) for production.
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+// Backend API base URL (hardcoded to deployed backend).
+// NOTE: per requirements, do not use environment variables here.
+const API_BASE_URL = 'https://frontned-one.vercel.app/api'
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {
