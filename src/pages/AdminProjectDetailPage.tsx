@@ -109,6 +109,7 @@ export function AdminProjectDetailPage() {
       const response: any = await api.unassignCollaborator(projectId)
       if (response.success) {
         await loadProjectData()
+        setIsCollaboratorModalOpen(false)
         alert('Collaborator unassigned successfully!')
       } else {
         throw new Error(response.message || 'Failed to unassign collaborator')
@@ -1186,9 +1187,11 @@ export function AdminProjectDetailPage() {
         title="Assign Collaborator"
       >
         <AssignCollaboratorForm
-          currentCollaboratorId={typeof project.assigned_collaborator === 'object' 
-            ? project.assigned_collaborator._id 
-            : project.assigned_collaborator}
+          currentCollaboratorId={
+            project.assigned_collaborator && typeof project.assigned_collaborator === 'object'
+              ? (project.assigned_collaborator as any)._id || ''
+              : (project.assigned_collaborator as string | undefined) || ''
+          }
           currentPaymentAmount={project.collaborator_payment_amount}
           onSubmit={handleAssignCollaborator}
           onCancel={() => setIsCollaboratorModalOpen(false)}

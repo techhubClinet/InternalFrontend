@@ -646,6 +646,26 @@ export function AdminProjectsPage() {
                         height: '100%' as const,
                         color: 'inherit',
                       }
+                      const handleDeleteCatalogItem = async (e: React.MouseEvent) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        if (!window.confirm(`Are you sure you want to delete this product from the catalog?\n\n${project.name}`)) {
+                          return
+                        }
+                        try {
+                          const response: any = await api.deleteCatalogItem(projectId)
+                          if (response.success) {
+                            alert('Catalog product deleted successfully.')
+                            // Reload projects so predefined list updates
+                            loadProjects()
+                          } else {
+                            alert(response.message || 'Failed to delete catalog product')
+                          }
+                        } catch (err: any) {
+                          alert(err.message || 'Failed to delete catalog product')
+                        }
+                      }
+
                       return (
                         <Link
                           key={projectId}
@@ -695,10 +715,45 @@ export function AdminProjectsPage() {
                               </p>
                             )}
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
-                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>
-                              View project →
-                            </p>
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                // Navigate to edit view
+                                window.location.href = `/admin/projects/${projectId}?edit=catalog`
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '0.45rem 0.75rem',
+                                borderRadius: '999px',
+                                border: '1px solid rgba(234, 88, 12, 0.3)',
+                                background: 'rgba(234, 88, 12, 0.06)',
+                                color: '#ea580c',
+                                fontSize: '0.8rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleDeleteCatalogItem}
+                              style={{
+                                padding: '0.45rem 0.75rem',
+                                borderRadius: '999px',
+                                border: '1px solid rgba(239, 68, 68, 0.3)',
+                                background: 'rgba(239, 68, 68, 0.06)',
+                                color: '#ef4444',
+                                fontSize: '0.8rem',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Delete
+                            </button>
                           </div>
                         </Link>
                       )

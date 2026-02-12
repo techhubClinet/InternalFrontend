@@ -14,6 +14,10 @@ export function CollaboratorProjectDetailPage() {
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false)
   const [uploadingInvoice, setUploadingInvoice] = useState(false)
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false)
+  const [deliveryLink, setDeliveryLink] = useState('')
+  const [deliveryNotes, setDeliveryNotes] = useState('')
+  const [submittingDelivery, setSubmittingDelivery] = useState(false)
 
   useEffect(() => {
     if (projectId) {
@@ -231,6 +235,42 @@ export function CollaboratorProjectDetailPage() {
       }
     } catch (error: any) {
       alert(`Failed to update status: ${error.message}`)
+    }
+  }
+
+  const handleSubmitDeliveryForReview = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!projectId) return
+    if (!deliveryLink.trim()) {
+      alert('Please paste a delivery link (e.g. Google Drive, Dropbox).')
+      return
+    }
+
+    const parts: string[] = [`Delivery link: ${deliveryLink.trim()}`]
+    if (deliveryNotes.trim()) {
+      parts.push('', 'Notes:', deliveryNotes.trim())
+    }
+    const combinedNotes = parts.join('\n')
+
+    try {
+      setSubmittingDelivery(true)
+      const responseData: any = await api.updateProjectStatus(projectId, {
+        status: 'review',
+        notes: combinedNotes,
+      })
+      if (responseData.success) {
+        await loadProjectData()
+        setIsDeliveryModalOpen(false)
+        setDeliveryLink('')
+        setDeliveryNotes('')
+        alert('Delivery submitted for client review.')
+      } else {
+        throw new Error(responseData.message || 'Failed to submit delivery for review')
+      }
+    } catch (error: any) {
+      alert(`Failed to submit delivery: ${error.message}`)
+    } finally {
+      setSubmittingDelivery(false)
     }
   }
 
@@ -695,6 +735,7 @@ export function CollaboratorProjectDetailPage() {
                 fontSize: '0.85rem',
                 cursor: 'pointer'
               }}
+              onClick={() => setIsDeliveryModalOpen(true)}
             >
               Request Review
             </button>
@@ -714,6 +755,149 @@ export function CollaboratorProjectDetailPage() {
           allowRevision={false}
           allowCompleted={false}
         />
+      </Modal>
+
+      <Modal
+        isOpen={isDeliveryModalOpen}
+        onClose={() => {
+          if (submittingDelivery) return
+          setIsDeliveryModalOpen(false)
+        }}
+        title="Submit Delivery for Review"
+      >
+        <form onSubmit={handleSubmitDeliveryForReview}>
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#e5e7eb',
+                fontWeight: '500',
+              }}
+            >
+              Delivery link (Google Drive, Dropbox, etc.) *
+            </label>
+            <input
+              type="url"
+              value={deliveryLink}
+              onChange={(e) => setDeliveryLink(e.target.value)}
+              required
+              placeholder="https://drive.google.com/..."
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'transparent',
+                border: '1px solid rgba(30, 64, 175, 0.6)',
+                borderRadius: '0.6rem',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                color: '#e5e7eb',
+                outline: 'none',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#1d4ed8'
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(30, 64, 175, 0.6)'
+              }}
+            />
+            <p
+              style={{
+                margin: '0.5rem 0 0',
+                fontSize: '0.75rem',
+                color: '#9ca3af',
+              }}
+            >
+              Paste a shareable link to your final files (make sure the client has access).
+            </p>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontSize: '0.85rem',
+                color: '#e5e7eb',
+                fontWeight: '500',
+              }}
+            >
+              Additional notes (optional)
+            </label>
+            <textarea
+              value={deliveryNotes}
+              onChange={(e) => setDeliveryNotes(e.target.value)}
+              placeholder="Add any notes or instructions for the client..."
+              style={{
+                width: '100%',
+                minHeight: '100px',
+                padding: '0.75rem',
+                background: 'transparent',
+                border: '1px solid rgba(30, 64, 175, 0.6)',
+                borderRadius: '0.6rem',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                color: '#e5e7eb',
+                resize: 'vertical',
+                outline: 'none',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = '#1d4ed8'
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(30, 64, 175, 0.6)'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              disabled={submittingDelivery}
+              onClick={() => {
+                if (submittingDelivery) return
+                setIsDeliveryModalOpen(false)
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: 'transparent',
+                color: '#9ca3af',
+                border: '1px solid rgba(148, 163, 184, 0.4)',
+                borderRadius: '999px',
+                fontSize: '0.9rem',
+                cursor: submittingDelivery ? 'not-allowed' : 'pointer',
+                fontWeight: '500',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submittingDelivery || !deliveryLink.trim()}
+              style={{
+                padding: '0.75rem 1.8rem',
+                background:
+                  submittingDelivery || !deliveryLink.trim()
+                    ? '#9ca3af'
+                    : 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '999px',
+                fontSize: '0.9rem',
+                cursor:
+                  submittingDelivery || !deliveryLink.trim() ? 'not-allowed' : 'pointer',
+                fontWeight: '500',
+                boxShadow:
+                  submittingDelivery || !deliveryLink.trim()
+                    ? 'none'
+                    : '0 8px 20px rgba(234, 88, 12, 0.4)',
+              }}
+            >
+              {submittingDelivery ? 'Submitting...' : 'Send for review'}
+            </button>
+          </div>
+        </form>
       </Modal>
 
       <Modal

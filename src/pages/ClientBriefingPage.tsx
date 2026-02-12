@@ -220,7 +220,14 @@ export function ClientBriefingPage() {
           <textarea
             value={overallBrief}
             onChange={(e) => setOverallBrief(e.target.value)}
-            placeholder="Describe your vision, goals, target audience, style preferences, and any other important details for this project..."
+            placeholder={
+              'Briefly describe your project idea:\n' +
+              '– What you want to design\n' +
+              '– What you will use it for\n' +
+              '– Target audience\n' +
+              '– Style\n' +
+              '– Important details'
+            }
             style={{
               width: '100%',
               minHeight: '150px',

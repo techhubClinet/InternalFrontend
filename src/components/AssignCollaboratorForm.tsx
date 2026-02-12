@@ -23,6 +23,15 @@ export function AssignCollaboratorForm({
     loadCollaborators()
   }, [])
 
+  // Keep internal state in sync if the current collaborator/payment props change
+  useEffect(() => {
+    setCollaboratorId(currentCollaboratorId || '')
+  }, [currentCollaboratorId])
+
+  useEffect(() => {
+    setPaymentAmount(currentPaymentAmount != null ? currentPaymentAmount.toString() : '')
+  }, [currentPaymentAmount])
+
   const loadCollaborators = async () => {
     try {
       setLoading(true)

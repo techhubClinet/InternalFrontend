@@ -128,6 +128,13 @@ class ApiService {
     })
   }
 
+  // Delete a predefined/catalog project (admin only)
+  async deleteCatalogItem(projectId: string) {
+    return this.request(`/projects/${projectId}/catalog`, {
+      method: 'DELETE',
+    })
+  }
+
   // Service endpoints
   async getServices() {
     return this.request(`/services`)
