@@ -259,11 +259,17 @@ export function ClientDashboardPage() {
                 </h4>
                 {(() => {
                   const notes = (project.status_notes || {}) as Record<string, string>
-                  // Prefer the dedicated delivery field; fall back to review when it clearly looks like a delivery link
                   const deliveryFromKey = notes.review_delivery
-                  const deliveryFromReview = notes.review && notes.review.trim().toLowerCase().startsWith('delivery link:')
-                    ? notes.review
-                    : ''
+                  const reviewText = (notes.review || '').trim()
+                  const reviewLower = reviewText.toLowerCase()
+                  // Treat any review note that clearly looks like a link as a delivery note
+                  const reviewLooksLikeDelivery =
+                    !!reviewText &&
+                    (reviewLower.includes('http://') ||
+                      reviewLower.includes('https://') ||
+                      reviewLower.includes('www.') ||
+                      reviewLower.startsWith('delivery link:'))
+                  const deliveryFromReview = reviewLooksLikeDelivery ? reviewText : ''
                   const deliveryText = deliveryFromKey || deliveryFromReview
 
                   if (!deliveryText) {
@@ -301,12 +307,18 @@ export function ClientDashboardPage() {
                 </h4>
                 {(() => {
                   const notes = (project.status_notes || {}) as Record<string, string>
+                  const reviewText = (notes.review || '').trim()
+                  const reviewLower = reviewText.toLowerCase()
                   const reviewLooksLikeDelivery =
-                    notes.review && notes.review.trim().toLowerCase().startsWith('delivery link:')
+                    !!reviewText &&
+                    (reviewLower.includes('http://') ||
+                      reviewLower.includes('https://') ||
+                      reviewLower.includes('www.') ||
+                      reviewLower.startsWith('delivery link:'))
                   const updates = [
                     notes.in_progress && { stage: 'In progress', text: notes.in_progress },
                     // Only show review as a team update if it's not the delivery-link style note
-                    !reviewLooksLikeDelivery && notes.review && { stage: 'Review', text: notes.review },
+                    !reviewLooksLikeDelivery && reviewText && { stage: 'Review', text: reviewText },
                     notes.revision && { stage: 'Revision', text: notes.revision },
                     notes.completed && { stage: 'Completed', text: notes.completed },
                   ].filter(Boolean) as { stage: string; text: string }[]

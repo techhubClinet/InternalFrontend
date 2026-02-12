@@ -8,11 +8,21 @@ interface UpdateStatusFormProps {
   allowRevision?: boolean
   /** If false, "Completed" is hidden. Only client (after acceptance) or admin can mark completed. */
   allowCompleted?: boolean
+  /** When true and status is "review", show a delivery link field and prepend it to the notes. */
+  showDeliveryLinkForReview?: boolean
 }
 
-export function UpdateStatusForm({ currentStatus, onSubmit, onCancel, allowRevision = true, allowCompleted = true }: UpdateStatusFormProps) {
+export function UpdateStatusForm({
+  currentStatus,
+  onSubmit,
+  onCancel,
+  allowRevision = true,
+  allowCompleted = true,
+  showDeliveryLinkForReview = false,
+}: UpdateStatusFormProps) {
   const [status, setStatus] = useState(currentStatus)
   const [notes, setNotes] = useState('')
+  const [deliveryLink, setDeliveryLink] = useState('')
 
   const statusOptions = [
     { value: 'pending', label: 'Pending', color: '#64748b' },
@@ -24,6 +34,17 @@ export function UpdateStatusForm({ currentStatus, onSubmit, onCancel, allowRevis
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // When enabled, and status is set to "review", prepend delivery link to notes
+    if (showDeliveryLinkForReview && status === 'review' && deliveryLink.trim()) {
+      const parts: string[] = [`Delivery link: ${deliveryLink.trim()}`]
+      if (notes.trim()) {
+        parts.push('', notes.trim())
+      }
+      onSubmit(status, parts.join('\n'))
+      return
+    }
+
     onSubmit(status, notes)
   }
 
@@ -91,6 +112,54 @@ export function UpdateStatusForm({ currentStatus, onSubmit, onCancel, allowRevis
           }}
         />
       </div>
+
+      {showDeliveryLinkForReview && status === 'review' && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontSize: '0.85rem',
+              color: '#cbd5e1',
+              fontWeight: '500',
+            }}
+          >
+            Delivery link (Google Drive, Dropbox, etc.) *
+          </label>
+          <input
+            type="url"
+            value={deliveryLink}
+            onChange={(e) => setDeliveryLink(e.target.value)}
+            placeholder="https://drive.google.com/..."
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: 'rgba(15, 23, 42, 0.8)',
+              border: '1px solid rgba(30, 64, 175, 0.4)',
+              borderRadius: '0.6rem',
+              color: '#e5e7eb',
+              fontSize: '0.9rem',
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = '#1d4ed8'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(30, 64, 175, 0.4)'
+            }}
+          />
+          <p
+            style={{
+              margin: '0.5rem 0 0',
+              fontSize: '0.75rem',
+              color: '#9ca3af',
+            }}
+          >
+            Paste a shareable link to your final files (make sure the client has access).
+          </p>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'flex-end' }}>
         <button
