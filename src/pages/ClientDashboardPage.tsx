@@ -300,57 +300,6 @@ export function ClientDashboardPage() {
                 })()}
               </div>
 
-              {/* 💬 Comments / team updates */}
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem', color: '#0f172a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  💬 Team updates
-                </h4>
-                {(() => {
-                  const notes = (project.status_notes || {}) as Record<string, string>
-                  const reviewText = (notes.review || '').trim()
-                  const reviewLower = reviewText.toLowerCase()
-                  const reviewLooksLikeDelivery =
-                    !!reviewText &&
-                    (reviewLower.includes('http://') ||
-                      reviewLower.includes('https://') ||
-                      reviewLower.includes('www.') ||
-                      reviewLower.startsWith('delivery link:'))
-                  const updates = [
-                    notes.in_progress && { stage: 'In progress', text: notes.in_progress },
-                    // Only show review as a team update if it's not the delivery-link style note
-                    !reviewLooksLikeDelivery && reviewText && { stage: 'Review', text: reviewText },
-                    notes.revision && { stage: 'Revision', text: notes.revision },
-                    notes.completed && { stage: 'Completed', text: notes.completed },
-                  ].filter(Boolean) as { stage: string; text: string }[]
-                  if (updates.length === 0) {
-                    return (
-                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                        No updates from the team yet.
-                      </p>
-                    )
-                  }
-                  return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                      {updates.map((u, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            padding: '0.75rem 1rem',
-                            background: '#ffffff',
-                            border: '1px solid rgba(30, 64, 175, 0.12)',
-                            borderRadius: '0.5rem',
-                            fontSize: '0.875rem'
-                          }}
-                        >
-                          <span style={{ fontWeight: '600', color: '#1d4ed8', marginRight: '0.5rem' }}>{u.stage}:</span>
-                          <span style={{ color: '#374151', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{u.text}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                })()}
-              </div>
-
               {/* Actions: Revision + Accept */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid rgba(30, 64, 175, 0.12)' }}>
                 <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#0f172a', marginRight: '0.25rem' }}>Your actions:</span>
