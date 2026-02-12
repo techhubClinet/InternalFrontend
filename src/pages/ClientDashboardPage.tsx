@@ -257,7 +257,7 @@ export function ClientDashboardPage() {
                 <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem', color: '#0f172a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   📂 Delivered files &amp; links
                 </h4>
-                {(project.status_notes as any)?.review ? (
+                {(project.status_notes as any)?.review_delivery ? (
                   <div style={{
                     padding: '1rem',
                     background: '#ffffff',
@@ -269,7 +269,7 @@ export function ClientDashboardPage() {
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word'
                   }}>
-                    {(project.status_notes as any).review}
+                    {(project.status_notes as any).review_delivery}
                   </div>
                 ) : (
                   <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', fontStyle: 'italic' }}>
@@ -287,6 +287,7 @@ export function ClientDashboardPage() {
                   const notes = (project.status_notes || {}) as Record<string, string>
                   const updates = [
                     notes.in_progress && { stage: 'In progress', text: notes.in_progress },
+                    notes.review && { stage: 'Review', text: notes.review },
                     notes.revision && { stage: 'Revision', text: notes.revision },
                     notes.completed && { stage: 'Completed', text: notes.completed }
                   ].filter(Boolean) as { stage: string; text: string }[]

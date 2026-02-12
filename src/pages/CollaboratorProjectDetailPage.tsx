@@ -257,6 +257,7 @@ export function CollaboratorProjectDetailPage() {
       const responseData: any = await api.updateProjectStatus(projectId, {
         status: 'review',
         notes: combinedNotes,
+        notes_key: 'review_delivery',
       })
       if (responseData.success) {
         await loadProjectData()

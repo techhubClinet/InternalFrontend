@@ -299,7 +299,7 @@ class ApiService {
     })
   }
 
-  async updateProjectStatus(projectId: string, data: { status: string; notes?: string }) {
+  async updateProjectStatus(projectId: string, data: { status: string; notes?: string; notes_key?: string }) {
     return this.request(`/projects/${projectId}/status`, {
       method: 'PATCH',
       body: JSON.stringify(data),
