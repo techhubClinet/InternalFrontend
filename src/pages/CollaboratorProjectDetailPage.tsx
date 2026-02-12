@@ -737,7 +737,7 @@ export function CollaboratorProjectDetailPage() {
               }}
               onClick={() => setIsDeliveryModalOpen(true)}
             >
-              Request Review
+              Add Delivery Links
             </button>
           </div>
         </aside>
