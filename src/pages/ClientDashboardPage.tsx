@@ -257,25 +257,41 @@ export function ClientDashboardPage() {
                 <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem', color: '#0f172a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   📂 Delivered files &amp; links
                 </h4>
-                {(project.status_notes as any)?.review_delivery ? (
-                  <div style={{
-                    padding: '1rem',
-                    background: '#ffffff',
-                    border: '1px solid rgba(30, 64, 175, 0.15)',
-                    borderRadius: '0.6rem',
-                    fontSize: '0.9rem',
-                    color: '#0f172a',
-                    lineHeight: '1.6',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word'
-                  }}>
-                    {(project.status_notes as any).review_delivery}
-                  </div>
-                ) : (
-                  <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', fontStyle: 'italic' }}>
-                    No delivery files or links shared yet. The team will add them here when the work is ready for your review.
-                  </p>
-                )}
+                {(() => {
+                  const notes = (project.status_notes || {}) as Record<string, string>
+                  // Prefer the dedicated delivery field; fall back to review when it clearly looks like a delivery link
+                  const deliveryFromKey = notes.review_delivery
+                  const deliveryFromReview = notes.review && notes.review.trim().toLowerCase().startsWith('delivery link:')
+                    ? notes.review
+                    : ''
+                  const deliveryText = deliveryFromKey || deliveryFromReview
+
+                  if (!deliveryText) {
+                    return (
+                      <p style={{ margin: 0, fontSize: '0.875rem', color: '#94a3b8', fontStyle: 'italic' }}>
+                        No delivery files or links shared yet. The team will add them here when the work is ready for your review.
+                      </p>
+                    )
+                  }
+
+                  return (
+                    <div
+                      style={{
+                        padding: '1rem',
+                        background: '#ffffff',
+                        border: '1px solid rgba(30, 64, 175, 0.15)',
+                        borderRadius: '0.6rem',
+                        fontSize: '0.9rem',
+                        color: '#0f172a',
+                        lineHeight: '1.6',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word',
+                      }}
+                    >
+                      {deliveryText}
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* 💬 Comments / team updates */}
@@ -285,11 +301,14 @@ export function ClientDashboardPage() {
                 </h4>
                 {(() => {
                   const notes = (project.status_notes || {}) as Record<string, string>
+                  const reviewLooksLikeDelivery =
+                    notes.review && notes.review.trim().toLowerCase().startsWith('delivery link:')
                   const updates = [
                     notes.in_progress && { stage: 'In progress', text: notes.in_progress },
-                    notes.review && { stage: 'Review', text: notes.review },
+                    // Only show review as a team update if it's not the delivery-link style note
+                    !reviewLooksLikeDelivery && notes.review && { stage: 'Review', text: notes.review },
                     notes.revision && { stage: 'Revision', text: notes.revision },
-                    notes.completed && { stage: 'Completed', text: notes.completed }
+                    notes.completed && { stage: 'Completed', text: notes.completed },
                   ].filter(Boolean) as { stage: string; text: string }[]
                   if (updates.length === 0) {
                     return (
