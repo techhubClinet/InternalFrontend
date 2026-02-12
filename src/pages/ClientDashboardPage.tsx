@@ -287,7 +287,6 @@ export function ClientDashboardPage() {
                   const notes = (project.status_notes || {}) as Record<string, string>
                   const updates = [
                     notes.in_progress && { stage: 'In progress', text: notes.in_progress },
-                    notes.review && { stage: 'Review', text: notes.review },
                     notes.revision && { stage: 'Revision', text: notes.revision },
                     notes.completed && { stage: 'Completed', text: notes.completed }
                   ].filter(Boolean) as { stage: string; text: string }[]
