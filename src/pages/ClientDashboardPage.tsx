@@ -1,6 +1,6 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { api } from '../services/api'
+import { api, getApiBaseUrl } from '../services/api'
 import { Modal } from '../components/Modal'
 
 export function ClientDashboardPage() {
@@ -372,6 +372,62 @@ export function ClientDashboardPage() {
                   </span>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Official Holded invoice: appears after payment once a Holded document is linked.
+              Backend will block access until status is actually APPROVED. */}
+          {project.payment_status === 'paid' && project.holded_document_id && (
+            <div style={{
+              marginBottom: '2rem',
+              padding: '1.5rem 1.75rem',
+              background: 'rgba(34, 197, 94, 0.06)',
+              border: '1px solid rgba(34, 197, 94, 0.25)',
+              borderRadius: '1rem'
+            }}>
+              <h3 style={{ fontSize: '1.15rem', marginBottom: '0.75rem', color: '#0f172a', fontWeight: '700' }}>
+                📄 Your invoice
+              </h3>
+              <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#64748b' }}>
+                This is the official invoice generated in Holded. You can view or download it below.
+              </p>
+              <button
+                type="button"
+                onClick={async () => {
+                  const token = localStorage.getItem('auth_token')
+                  if (!token) {
+                    alert('Please log in to view the invoice.')
+                    return
+                  }
+                  try {
+                    const apiUrl = `${getApiBaseUrl()}/holded/projects/${projectId}/invoice`
+                    const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } })
+                    if (!res.ok) {
+                      const errBody = await res.json().catch(() => ({}))
+                      const msg = errBody?.message || res.statusText || 'Failed to load invoice'
+                      throw new Error(msg)
+                    }
+                    const blob = await res.blob()
+                    const url = URL.createObjectURL(blob)
+                    const w = window.open(url, '_blank')
+                    if (!w) alert('Please allow pop-ups to view the invoice.')
+                  } catch (e: any) {
+                    alert(e?.message || 'Failed to load invoice.')
+                  }
+                }}
+                style={{
+                  padding: '0.6rem 1.25rem',
+                  background: '#22c55e',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '0.6rem',
+                  fontSize: '0.9rem',
+                  fontWeight: '600',
+                  cursor: 'pointer'
+                }}
+              >
+                View invoice →
+              </button>
             </div>
           )}
 

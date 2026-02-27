@@ -1,6 +1,6 @@
 // Backend API base URL (hardcoded to deployed backend).
 // NOTE: per requirements, do not use environment variables here.
-const API_BASE_URL = 'https://frontned-one.vercel.app/api'
+const API_BASE_URL = 'http://localhost:3001/api'
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {
@@ -149,6 +149,14 @@ class ApiService {
     return this.request(`/payments/${projectId}/checkout`, {
       method: 'POST',
       body: JSON.stringify(data),
+    })
+  }
+
+  /** New Stripe integration: create session, store sessionId on project; confirmation is via webhook only. */
+  async createStripeCheckoutSession(projectId: string, amount: number, description?: string) {
+    return this.request<{ success: boolean; data: { sessionId: string; url: string } }>('/stripe/create-checkout-session', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, amount, description }),
     })
   }
 
@@ -368,6 +376,14 @@ class ApiService {
   async rejectInvoice(projectId: string) {
     return this.request(`/projects/${projectId}/invoice/reject`, {
       method: 'POST',
+    })
+  }
+
+  /** Link official Holded invoice to project (so client can view it when approved in Holded). */
+  async linkHoldedInvoice(projectId: string, holdedDocumentId: string) {
+    return this.request<{ success: boolean; data: any }>('/holded/link-invoice', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, holded_document_id: holdedDocumentId }),
     })
   }
 

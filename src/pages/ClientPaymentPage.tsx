@@ -77,24 +77,22 @@ export function ClientPaymentPage() {
 
     setProcessing(true)
     try {
-      // Use serviceId only when client selected a service from catalog; otherwise send amount
-      const serviceId = project.selected_service?._id || project.selected_service
-      const customAmount = serviceId ? undefined : amount
+      const description = getServiceName()
+      const response: any = await api.createStripeCheckoutSession(projectId, amount, description)
 
-      const response: any = await api.createCheckoutSession(projectId, {
-        serviceId: serviceId || undefined,
-        customAmount: customAmount || undefined,
-      })
-
-      if (response.success && response.data.url) {
-        // Redirect to Stripe Checkout
+      if (response?.success && response?.data?.url) {
         window.location.href = response.data.url
-      } else {
-        alert('Failed to create checkout session. Please try again.')
-        setProcessing(false)
+        return
       }
+      alert(response?.message || 'Failed to create checkout session. Please try again.')
     } catch (error: any) {
-      alert(`Error: ${error.message}`)
+      const msg = error?.message || 'Request failed'
+      alert(
+        msg.includes('fetch') || msg.includes('Failed to fetch')
+          ? 'Cannot reach backend. Is it running at http://localhost:3001?'
+          : `Error: ${msg}`
+      )
+    } finally {
       setProcessing(false)
     }
   }

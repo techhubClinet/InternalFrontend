@@ -27,6 +27,8 @@ export function AdminProjectDetailPage() {
     max_revisions: number
   } | null>(null)
   const [savingCatalog, setSavingCatalog] = useState(false)
+  const [holdedDocumentIdInput, setHoldedDocumentIdInput] = useState('')
+  const [linkingHolded, setLinkingHolded] = useState(false)
 
   useEffect(() => {
     if (projectId) {
@@ -1164,6 +1166,81 @@ export function AdminProjectDetailPage() {
                   No invoice uploaded yet. Waiting for collaborator to upload invoice.
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Official Holded invoice – link so client can view when approved in Holded */}
+          {project.payment_status === 'paid' && (
+            <div style={{
+              marginTop: '1.5rem',
+              padding: '1rem',
+              background: 'rgba(30, 64, 175, 0.06)',
+              border: '1px solid rgba(30, 64, 175, 0.25)',
+              borderRadius: '0.6rem'
+            }}>
+              <strong style={{ display: 'block', marginBottom: '0.6rem', fontSize: '0.9rem' }}>Official Holded invoice (for client)</strong>
+              <p style={{ fontSize: '0.85rem', color: '#64748b', margin: '0 0 0.75rem 0' }}>
+                Link the Holded invoice so the client can view it from their dashboard once it’s approved in Holded.
+              </p>
+              {project.holded_document_id ? (
+                <div style={{ fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                  <span style={{ color: '#22c55e', fontWeight: '500' }}>✓ Linked:</span>{' '}
+                  <code style={{ background: 'rgba(0,0,0,0.06)', padding: '0.15rem 0.4rem', borderRadius: '0.25rem' }}>{project.holded_document_id}</code>
+                  {project.holded_invoice_status && (
+                    <span style={{ marginLeft: '0.5rem', color: '#64748b' }}>(status: {project.holded_invoice_status})</span>
+                  )}
+                </div>
+              ) : null}
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="Holded document ID (e.g. 69a0160a097a6860f20e86ea)"
+                  value={holdedDocumentIdInput}
+                  onChange={(e) => setHoldedDocumentIdInput(e.target.value.trim())}
+                  style={{
+                    flex: '1',
+                    minWidth: '200px',
+                    padding: '0.5rem 0.75rem',
+                    border: '1px solid rgba(148, 163, 184, 0.5)',
+                    borderRadius: '0.4rem',
+                    fontSize: '0.9rem'
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={!holdedDocumentIdInput || linkingHolded}
+                  onClick={async () => {
+                    if (!projectId || !holdedDocumentIdInput) return
+                    setLinkingHolded(true)
+                    try {
+                      const res: any = await api.linkHoldedInvoice(projectId, holdedDocumentIdInput)
+                      if (res.success) {
+                        await loadProjectData()
+                        setHoldedDocumentIdInput('')
+                        alert('Holded invoice linked. Client will see it once the invoice is approved in Holded.')
+                      } else {
+                        throw new Error(res.message || 'Failed to link')
+                      }
+                    } catch (e: any) {
+                      alert(e?.message || 'Failed to link Holded invoice.')
+                    } finally {
+                      setLinkingHolded(false)
+                    }
+                  }}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: (holdedDocumentIdInput && !linkingHolded) ? '#1d4ed8' : '#94a3b8',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '0.4rem',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    cursor: (holdedDocumentIdInput && !linkingHolded) ? 'pointer' : 'not-allowed'
+                  }}
+                >
+                  {linkingHolded ? 'Linking…' : project.holded_document_id ? 'Update link' : 'Link invoice'}
+                </button>
+              </div>
             </div>
           )}
         </aside>

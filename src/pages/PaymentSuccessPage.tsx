@@ -69,13 +69,26 @@ export function PaymentSuccessPage() {
 
   const formatAmount = () => {
     if (!project) return '$0'
-    if (project.custom_quote_amount) {
-      return `$${project.custom_quote_amount.toLocaleString()}`
+    if (project.custom_quote_amount != null && project.custom_quote_amount > 0) {
+      return `$${Number(project.custom_quote_amount).toLocaleString()}`
+    }
+    if (project.service_price != null && project.service_price > 0) {
+      return `$${Number(project.service_price).toLocaleString()}`
     }
     if (project.selected_service && typeof project.selected_service === 'object') {
       return `$${project.selected_service.price?.toLocaleString() || '0'}`
     }
     return '$0'
+  }
+
+  const getServiceLabel = () => {
+    if (!project) return 'Not selected'
+    if (project.service_name) return project.service_name
+    if (project.selected_service && typeof project.selected_service === 'object') {
+      return project.selected_service.name || 'Service'
+    }
+    if (project.custom_quote_amount != null && project.custom_quote_amount > 0) return 'Custom Quote'
+    return 'Not selected'
   }
 
   if (loading) {
@@ -241,13 +254,7 @@ export function PaymentSuccessPage() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#6b7280', fontSize: '0.9rem' }}>Service:</span>
-                <span style={{ color: '#0f172a', fontWeight: '500' }}>
-                  {project.selected_service && typeof project.selected_service === 'object'
-                    ? project.selected_service.name
-                    : project.custom_quote_amount
-                    ? 'Custom Quote'
-                    : 'Not selected'}
-                </span>
+                <span style={{ color: '#0f172a', fontWeight: '500' }}>{getServiceLabel()}</span>
               </div>
               {project.deadline && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
