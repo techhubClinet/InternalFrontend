@@ -1,5 +1,5 @@
 // Backend API base URL (deployed)
-const API_BASE_URL = 'https://client2-backend.vercel.app/api'
+const API_BASE_URL = 'https://frontned-one.vercel.app/api'
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {
