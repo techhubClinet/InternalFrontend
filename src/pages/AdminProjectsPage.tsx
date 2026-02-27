@@ -13,12 +13,12 @@ export function AdminProjectsPage() {
   const [loadingMonthlyInvoices, setLoadingMonthlyInvoices] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
-  // Frontend base URL used for client access links
+  // Frontend base URL used for client access links (deployed)
   const frontendBaseUrl =
     import.meta.env.VITE_FRONTEND_URL ||
     (typeof window !== 'undefined'
       ? window.location.origin
-      : 'https://internal-frontend-two.vercel.app')
+      : 'https://frontned-mblv.vercel.app')
 
   // Load projects and monthly invoices on initial mount
   useEffect(() => {

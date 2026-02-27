@@ -89,7 +89,7 @@ export function ClientPaymentPage() {
       const msg = error?.message || 'Request failed'
       alert(
         msg.includes('fetch') || msg.includes('Failed to fetch')
-          ? 'Cannot reach backend. Is it running at http://localhost:3001?'
+          ? 'Cannot reach backend. Is it running?'
           : `Error: ${msg}`
       )
     } finally {

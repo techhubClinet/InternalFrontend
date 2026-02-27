@@ -1,6 +1,5 @@
-// Backend API base URL (hardcoded to deployed backend).
-// NOTE: per requirements, do not use environment variables here.
-const API_BASE_URL = 'http://localhost:3001/api'
+// Backend API base URL (deployed)
+const API_BASE_URL = 'https://client2-backend.vercel.app/api'
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {

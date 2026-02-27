@@ -46,11 +46,11 @@ export function ClientAccessPage() {
     )
   }
 
-  // Example base URL for the help text (matches current frontend origin in production)
+  // Example base URL for the help text (deployed frontend)
   const exampleBaseUrl =
     typeof window !== 'undefined'
       ? window.location.origin
-      : 'https://internal-frontend-two.vercel.app'
+      : 'https://frontned-mblv.vercel.app'
 
   return (
     <section className="page">
