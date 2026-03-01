@@ -3,6 +3,30 @@ import { useState, useEffect } from 'react'
 import { api, getApiBaseUrl } from '../services/api'
 import { Modal } from '../components/Modal'
 
+/** Renders text with any http(s) URLs as clickable links. */
+function renderTextWithLinks(text: string): React.ReactNode {
+  if (!text || !String(text).trim()) return text
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = String(text).split(urlRegex)
+  return parts.map((part, i) => {
+    if (part.match(/^https?:\/\/.+/)) {
+      const href = part.replace(/[.,;:)!?\]]+$/, '')
+      return (
+        <a
+          key={i}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#1d4ed8', textDecoration: 'underline' }}
+        >
+          {href}
+        </a>
+      )
+    }
+    return part
+  })
+}
+
 export function ClientDashboardPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
@@ -116,23 +140,19 @@ export function ClientDashboardPage() {
 
   const handleOpenRevisionModal = () => {
     if (!project) return
-
     const revisionsUsed = project.revisions_used || 0
     const maxRevisions = project.max_revisions || 3
     const remaining = maxRevisions - revisionsUsed
-
     if (remaining <= 0) {
       alert('All revisions have been used.')
       return
     }
-
     setRevisionDescription('')
     setIsRevisionModalOpen(true)
   }
 
   const handleClaimRevision = async () => {
     if (!projectId || !project) return
-
     try {
       setClaimingRevision(true)
       const response: any = await api.claimRevision(projectId, revisionDescription.trim() || undefined)
@@ -140,7 +160,6 @@ export function ClientDashboardPage() {
         alert(response.message || 'Revision claimed successfully!')
         setIsRevisionModalOpen(false)
         setRevisionDescription('')
-        // Reload project data
         await loadProjectData(false)
       } else {
         alert(response.message || 'Failed to claim revision')
@@ -236,7 +255,7 @@ export function ClientDashboardPage() {
 
       <div className="page-body">
         <div className="page-panel" style={{ gridColumn: '1 / -1' }}>
-          {/* Delivery & review – clear section so client knows how delivery works */}
+          {/* Delivered files & links + Request revision / Accept delivery (no "Delivery for review" heading) */}
           {project.payment_status === 'paid' && (
             <div style={{
               marginBottom: '2rem',
@@ -245,13 +264,6 @@ export function ClientDashboardPage() {
               border: '1px solid rgba(30, 64, 175, 0.2)',
               borderRadius: '1rem'
             }}>
-              <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', color: '#0f172a', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Delivery for review
-              </h3>
-              <p style={{ margin: '0 0 1.25rem', fontSize: '0.9rem', color: '#64748b' }}>
-                Here is what the team has shared for your review. You can request changes or accept delivery below.
-              </p>
-
               {/* 📂 Delivered files / links */}
               <div style={{ marginBottom: '1.5rem' }}>
                 <h4 style={{ fontSize: '0.95rem', marginBottom: '0.5rem', color: '#0f172a', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -262,7 +274,6 @@ export function ClientDashboardPage() {
                   const deliveryFromKey = notes.review_delivery
                   const reviewText = (notes.review || '').trim()
                   const reviewLower = reviewText.toLowerCase()
-                  // Treat any review note that clearly looks like a link as a delivery note
                   const reviewLooksLikeDelivery =
                     !!reviewText &&
                     (reviewLower.includes('http://') ||
@@ -294,7 +305,7 @@ export function ClientDashboardPage() {
                         wordBreak: 'break-word',
                       }}
                     >
-                      {deliveryText}
+                      {renderTextWithLinks(deliveryText)}
                     </div>
                   )
                 })()}
@@ -375,60 +386,75 @@ export function ClientDashboardPage() {
             </div>
           )}
 
-          {/* Official Holded invoice: appears after payment once a Holded document is linked.
-              Backend will block access until status is actually APPROVED. */}
+          {/* Official Holded invoice: show "View invoice" only when approved in Holded. */}
           {project.payment_status === 'paid' && project.holded_document_id && (
-            <div style={{
-              marginBottom: '2rem',
-              padding: '1.5rem 1.75rem',
-              background: 'rgba(34, 197, 94, 0.06)',
-              border: '1px solid rgba(34, 197, 94, 0.25)',
-              borderRadius: '1rem'
-            }}>
-              <h3 style={{ fontSize: '1.15rem', marginBottom: '0.75rem', color: '#0f172a', fontWeight: '700' }}>
-                📄 Your invoice
-              </h3>
-              <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#64748b' }}>
-                This is the official invoice generated in Holded. You can view or download it below.
-              </p>
-              <button
-                type="button"
-                onClick={async () => {
-                  const token = localStorage.getItem('auth_token')
-                  if (!token) {
-                    alert('Please log in to view the invoice.')
-                    return
-                  }
-                  try {
-                    const apiUrl = `${getApiBaseUrl()}/holded/projects/${projectId}/invoice`
-                    const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } })
-                    if (!res.ok) {
-                      const errBody = await res.json().catch(() => ({}))
-                      const msg = errBody?.message || res.statusText || 'Failed to load invoice'
-                      throw new Error(msg)
-                    }
-                    const blob = await res.blob()
-                    const url = URL.createObjectURL(blob)
-                    const w = window.open(url, '_blank')
-                    if (!w) alert('Please allow pop-ups to view the invoice.')
-                  } catch (e: any) {
-                    alert(e?.message || 'Failed to load invoice.')
-                  }
-                }}
-                style={{
-                  padding: '0.6rem 1.25rem',
-                  background: '#22c55e',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '0.6rem',
+            <>
+              {String(project.holded_invoice_status || '').toLowerCase() === 'approved' ? (
+                <div style={{
+                  marginBottom: '2rem',
+                  padding: '1.5rem 1.75rem',
+                  background: 'rgba(34, 197, 94, 0.06)',
+                  border: '1px solid rgba(34, 197, 94, 0.25)',
+                  borderRadius: '1rem'
+                }}>
+                  <h3 style={{ fontSize: '1.15rem', marginBottom: '0.75rem', color: '#0f172a', fontWeight: '700' }}>
+                    📄 Your invoice
+                  </h3>
+                  <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#64748b' }}>
+                    This is the official invoice generated in Holded. You can view or download it below.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const token = localStorage.getItem('auth_token')
+                      if (!token) {
+                        alert('Please log in to view the invoice.')
+                        return
+                      }
+                      try {
+                        const apiUrl = `${getApiBaseUrl()}/holded/projects/${projectId}/invoice`
+                        const res = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } })
+                        if (!res.ok) {
+                          const errBody = await res.json().catch(() => ({}))
+                          const msg = errBody?.message || res.statusText || 'Failed to load invoice'
+                          throw new Error(msg)
+                        }
+                        const blob = await res.blob()
+                        const url = URL.createObjectURL(blob)
+                        const w = window.open(url, '_blank')
+                        if (!w) alert('Please allow pop-ups to view the invoice.')
+                      } catch (e: any) {
+                        alert(e?.message || 'Failed to load invoice.')
+                      }
+                    }}
+                    style={{
+                      padding: '0.6rem 1.25rem',
+                      background: '#22c55e',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '0.6rem',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View invoice →
+                  </button>
+                </div>
+              ) : (
+                <div style={{
+                  marginBottom: '2rem',
+                  padding: '1rem 1.25rem',
+                  background: 'rgba(148, 163, 184, 0.08)',
+                  border: '1px solid rgba(148, 163, 184, 0.25)',
+                  borderRadius: '0.75rem',
                   fontSize: '0.9rem',
-                  fontWeight: '600',
-                  cursor: 'pointer'
-                }}
-              >
-                View invoice →
-              </button>
-            </div>
+                  color: '#64748b'
+                }}>
+                  📄 Your invoice is being prepared and will appear here once it has been approved by our team.
+                </div>
+              )}
+            </>
           )}
 
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: '#0f172a' }}>
@@ -479,7 +505,7 @@ export function ClientDashboardPage() {
                       whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {step.note}
+                    {renderTextWithLinks(step.note)}
                   </div>
                 )}
                 </div>
@@ -576,10 +602,10 @@ export function ClientDashboardPage() {
             Please provide details about what you'd like to be revised. This will help the collaborator understand your requirements.
           </p>
           <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ 
-              display: 'block', 
-              marginBottom: '0.5rem', 
-              fontSize: '0.85rem', 
+            <label style={{
+              display: 'block',
+              marginBottom: '0.5rem',
+              fontSize: '0.85rem',
               color: '#ffffff',
               fontWeight: '500'
             }}>

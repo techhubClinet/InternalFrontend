@@ -46,7 +46,7 @@ export function ClientAccessPage() {
     )
   }
 
-  // Example base URL for the help text (deployed frontend)
+  // Example base URL for help text (localhost when testing)
   const exampleBaseUrl =
     typeof window !== 'undefined'
       ? window.location.origin

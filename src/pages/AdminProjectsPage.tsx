@@ -13,7 +13,7 @@ export function AdminProjectsPage() {
   const [loadingMonthlyInvoices, setLoadingMonthlyInvoices] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
 
-  // Frontend base URL used for client access links (deployed)
+  // Frontend base URL for client access links (localhost for testing)
   const frontendBaseUrl =
     import.meta.env.VITE_FRONTEND_URL ||
     (typeof window !== 'undefined'
