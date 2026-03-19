@@ -1,9 +1,16 @@
-// Backend API base URL (deployed)
-const API_BASE_URL = 'https://frontned-one.vercel.app/api'
+// Backend API base URL – use localhost in development so you can test against your local backend
+const API_BASE_URL =
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3001/api' : 'https://frontned-one.vercel.app/api')
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {
   return API_BASE_URL
+}
+
+/** Base URL for the app (no /api) – use for professional delivery links: ${base}/delivery/:token */
+export function getDeliveryBaseUrl(): string {
+  return API_BASE_URL.replace(/\/api\/?$/, '') || API_BASE_URL
 }
 
 class ApiService {
@@ -151,11 +158,17 @@ class ApiService {
     })
   }
 
-  /** New Stripe integration: create session, store sessionId on project; confirmation is via webhook only. */
-  async createStripeCheckoutSession(projectId: string, amount: number, description?: string) {
+  /** New Stripe integration: create session, store sessionId on project; pass returnOrigin so redirect goes to same host (e.g. localhost). */
+  async createStripeCheckoutSession(
+    projectId: string,
+    amount: number,
+    description?: string,
+    currency: 'usd' | 'eur' = 'usd',
+    returnOrigin?: string
+  ) {
     return this.request<{ success: boolean; data: { sessionId: string; url: string } }>('/stripe/create-checkout-session', {
       method: 'POST',
-      body: JSON.stringify({ projectId, amount, description }),
+      body: JSON.stringify({ projectId, amount, description, currency, returnOrigin }),
     })
   }
 
@@ -326,6 +339,7 @@ class ApiService {
       name?: string
       service_name?: string
       service_price?: number | string
+      service_price_eur?: number | string
       service_description?: string
       delivery_timeline?: string
       max_revisions?: number

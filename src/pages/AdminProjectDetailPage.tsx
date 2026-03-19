@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { Modal } from '../components/Modal'
 import { UpdateStatusForm } from '../components/UpdateStatusForm'
 import { AssignCollaboratorForm } from '../components/AssignCollaboratorForm'
-import { api, getApiBaseUrl } from '../services/api'
+import { api, getApiBaseUrl, getDeliveryBaseUrl } from '../services/api'
 
 export function AdminProjectDetailPage() {
   const { projectId } = useParams()
@@ -22,6 +22,7 @@ export function AdminProjectDetailPage() {
     name: string
     service_name: string
     service_price: string
+    service_price_eur: string
     service_description: string
     delivery_timeline: string
     max_revisions: number
@@ -42,6 +43,7 @@ export function AdminProjectDetailPage() {
         name: project.name || '',
         service_name: project.service_name || '',
         service_price: project.service_price != null ? String(project.service_price) : '',
+        service_price_eur: project.service_price_eur != null ? String(project.service_price_eur) : '',
         service_description: project.service_description || '',
         delivery_timeline: project.delivery_timeline || '30 days',
         max_revisions: project.max_revisions ?? 3
@@ -492,6 +494,11 @@ export function AdminProjectDetailPage() {
         name: catalogEdit.name.trim(),
         service_name: catalogEdit.service_name.trim(),
         service_price: price,
+        service_price_eur: catalogEdit.service_price_eur ? (() => {
+          const eurStr = String(catalogEdit.service_price_eur).replace(/[€$]/g, '').replace(/,/g, '').trim()
+          const eurNum = parseFloat(eurStr)
+          return isNaN(eurNum) || eurNum < 0 ? undefined : eurNum
+        })() : undefined,
         service_description: catalogEdit.service_description.trim() || undefined,
         delivery_timeline: catalogEdit.delivery_timeline,
         max_revisions: catalogEdit.max_revisions,
@@ -569,6 +576,16 @@ export function AdminProjectDetailPage() {
                     value={catalogEdit.service_price}
                     onChange={(e) => setCatalogEdit({ ...catalogEdit, service_price: e.target.value })}
                     placeholder="e.g. 4500"
+                    style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', boxSizing: 'border-box', background: 'transparent' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.8rem', color: '#475569', marginBottom: '0.35rem', fontWeight: '500' }}>Price (EUR) – optional</label>
+                  <input
+                    type="text"
+                    value={catalogEdit.service_price_eur}
+                    onChange={(e) => setCatalogEdit({ ...catalogEdit, service_price_eur: e.target.value })}
+                    placeholder="e.g. 4200 or €4,200"
                     style={{ width: '100%', padding: '0.65rem 0.75rem', border: '1px solid rgba(226, 232, 240, 0.9)', borderRadius: '0.5rem', fontSize: '0.95rem', boxSizing: 'border-box', background: 'transparent' }}
                   />
                 </div>
@@ -942,6 +959,28 @@ export function AdminProjectDetailPage() {
               )}
             </div>
           </div>
+
+          {project.deliveryToken && (project.status === 'review' || project.status === 'completed') && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1rem',
+              background: 'rgba(34, 197, 94, 0.08)',
+              border: '1px solid rgba(34, 197, 94, 0.25)',
+              borderRadius: '0.5rem'
+            }}>
+              <strong style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem' }}>Delivery link</strong>
+              <div style={{ fontSize: '0.8rem', wordBreak: 'break-all', marginBottom: '0.5rem' }}>
+                <a href={`${getDeliveryBaseUrl()}/delivery/${project.deliveryToken}`} target="_blank" rel="noopener noreferrer" style={{ color: '#16a34a' }}>
+                  {getDeliveryBaseUrl()}/delivery/{project.deliveryToken}
+                </a>
+              </div>
+              {project.deliveryUrl && (
+                <div style={{ fontSize: '0.75rem', color: '#64748b', wordBreak: 'break-all' }}>
+                  Original: <a href={project.deliveryUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#1d4ed8' }}>{project.deliveryUrl}</a>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <strong style={{ display: 'block', marginBottom: '0.6rem' }}>Assign Collaborator</strong>

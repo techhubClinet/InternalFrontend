@@ -156,7 +156,7 @@ export function UpdateStatusForm({
               color: '#9ca3af',
             }}
           >
-            Paste a shareable link to your final files (make sure the client has access).
+            Paste a shareable link to your final files. The client will receive a professional short link (e.g. yourdomain.com/delivery/...) that redirects to this URL.
           </p>
         </div>
       )}

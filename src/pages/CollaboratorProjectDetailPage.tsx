@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { api, getApiBaseUrl } from '../services/api'
+import { api, getApiBaseUrl, getDeliveryBaseUrl } from '../services/api'
 import { Modal } from '../components/Modal'
 import { UpdateStatusForm } from '../components/UpdateStatusForm'
 
@@ -225,7 +225,15 @@ export function CollaboratorProjectDetailPage() {
       if (responseData.success) {
         await loadProjectData()
         setIsStatusModalOpen(false)
-        alert(`Project status updated to "${status}"`)
+        const updated = responseData.data
+        const token = updated?.deliveryToken
+        const base = getDeliveryBaseUrl()
+        const maskedLink = token ? `${base}/delivery/${token}` : null
+        if (status === 'review' && maskedLink) {
+          alert(`Delivery submitted.\n\nShare this professional link with your client:\n\n${maskedLink}`)
+        } else {
+          alert(`Project status updated to "${status}"`)
+        }
       } else {
         throw new Error(responseData.message || 'Failed to update status')
       }
@@ -354,6 +362,67 @@ export function CollaboratorProjectDetailPage() {
               }}>
                 {(project.status_notes as any).revision}
               </div>
+            </div>
+          )}
+
+          {/* Professional masked delivery link – show when collaborator has submitted a delivery */}
+          {project.deliveryToken && (project.status === 'review' || project.status === 'completed') && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1.25rem',
+              background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(22, 163, 74, 0.08))',
+              border: '1px solid rgba(34, 197, 94, 0.3)',
+              borderRadius: '0.8rem'
+            }}>
+              <h4 style={{ fontSize: '0.95rem', marginBottom: '0.75rem', color: '#15803d', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                🔗 Professional delivery link
+              </h4>
+              <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: '#4b5563' }}>
+                Share this link with your client. It redirects to your delivery file securely.
+              </p>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+                padding: '0.75rem 1rem',
+                background: '#ffffff',
+                border: '1px solid rgba(34, 197, 94, 0.25)',
+                borderRadius: '0.5rem',
+                marginBottom: '0.75rem'
+              }}>
+                <code style={{ flex: 1, minWidth: 0, fontSize: '0.85rem', wordBreak: 'break-all', color: '#0f172a' }}>
+                  {getDeliveryBaseUrl()}/delivery/{project.deliveryToken}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const link = `${getDeliveryBaseUrl()}/delivery/${project.deliveryToken}`
+                    navigator.clipboard.writeText(link).then(() => alert('Link copied to clipboard')).catch(() => alert('Could not copy'))
+                  }}
+                  style={{
+                    padding: '0.4rem 0.75rem',
+                    background: '#16a34a',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '0.4rem',
+                    fontSize: '0.8rem',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  Copy link
+                </button>
+              </div>
+              {project.deliveryUrl && (
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
+                  <strong>Original URL (for your reference):</strong>{' '}
+                  <a href={project.deliveryUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#1d4ed8', wordBreak: 'break-all' }}>
+                    {project.deliveryUrl}
+                  </a>
+                </p>
+              )}
             </div>
           )}
 

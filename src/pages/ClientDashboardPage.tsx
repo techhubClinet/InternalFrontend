@@ -281,7 +281,7 @@ export function ClientDashboardPage() {
                       reviewLower.includes('www.') ||
                       reviewLower.startsWith('delivery link:'))
                   const deliveryFromReview = reviewLooksLikeDelivery ? reviewText : ''
-                  const deliveryText = deliveryFromKey || deliveryFromReview
+                  const deliveryText = (project as any).deliveryMaskedLink || deliveryFromKey || deliveryFromReview
 
                   if (!deliveryText) {
                     return (

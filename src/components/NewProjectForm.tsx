@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { api } from '../services/api'
 
 const DELIVERY_OPTIONS = ['7 days', '14 days', '21 days', '30 days', '45 days', '60 days']
 
@@ -9,28 +10,63 @@ interface NewProjectFormProps {
     project_type: 'simple' | 'custom'
     service: string
     service_price: string
+    service_price_eur?: string
     service_description?: string
     amount: string
     deadline: string
     delivery_timeline?: string
     max_revisions?: number
+    selected_service_id?: string
   }) => void
   onCancel: () => void
 }
 
 export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
+  const [services, setServices] = useState<any[]>([])
+  const [loadingServices, setLoadingServices] = useState(false)
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('')
   const [formData, setFormData] = useState({
     name: '',
     client_email: '',
     project_type: 'simple' as 'simple' | 'custom',
     service: '',
     service_price: '',
+    service_price_eur: '',
     service_description: '',
     amount: '',
     deadline: '',
     delivery_timeline: '30 days',
     max_revisions: 3
   })
+  useEffect(() => {
+    if (formData.project_type === 'simple') {
+      setLoadingServices(true)
+      api.getServices().then((res: any) => {
+        const list = res?.data ?? res ?? []
+        setServices(Array.isArray(list) ? list : [])
+      }).catch(() => setServices([])).finally(() => setLoadingServices(false))
+    } else {
+      setServices([])
+      setSelectedServiceId('')
+    }
+  }, [formData.project_type])
+
+  useEffect(() => {
+    if (formData.project_type !== 'simple' || !selectedServiceId || selectedServiceId === '__custom__') return
+    const svc = services.find((s: any) => (s._id || s.id) === selectedServiceId)
+    if (!svc) return
+    const price = svc.priceUSD ?? svc.price
+    const priceEur = svc.priceEUR
+    setFormData((prev) => ({
+      ...prev,
+      service: svc.name || prev.service,
+      service_price: price != null ? String(price) : prev.service_price,
+      service_price_eur: priceEur != null ? String(priceEur) : prev.service_price_eur,
+      service_description: svc.description ?? prev.service_description,
+      delivery_timeline: svc.delivery_timeline || prev.delivery_timeline,
+    }))
+  }, [selectedServiceId, formData.project_type, services])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (formData.name) {
@@ -39,12 +75,15 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
           ...formData,
           delivery_timeline: formData.delivery_timeline,
           max_revisions: formData.max_revisions,
-          service_description: formData.service_description || undefined
+          service_description: formData.service_description || undefined,
+          service_price_eur: formData.service_price_eur || undefined,
+          selected_service_id: selectedServiceId && selectedServiceId !== '__custom__' ? selectedServiceId : undefined,
         })
-        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', service_description: '', amount: '', deadline: '', delivery_timeline: '30 days', max_revisions: 3 })
+        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', service_price_eur: '', service_description: '', amount: '', deadline: '', delivery_timeline: '30 days', max_revisions: 3 })
+        setSelectedServiceId('')
       } else if (formData.project_type === 'custom' && formData.client_email) {
         onSubmit(formData)
-        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', service_description: '', amount: '', deadline: '', delivery_timeline: '30 days', max_revisions: 3 })
+        setFormData({ name: '', client_email: '', project_type: 'simple', service: '', service_price: '', service_price_eur: '', service_description: '', amount: '', deadline: '', delivery_timeline: '30 days', max_revisions: 3 })
       }
     }
   }
@@ -94,6 +133,7 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
           value={formData.project_type}
           onChange={(e) => {
             const newType = e.target.value as 'simple' | 'custom'
+            setSelectedServiceId('')
             setFormData({ 
               ...formData, 
               project_type: newType, 
@@ -170,13 +210,53 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
               color: '#cbd5e1',
               fontWeight: '500'
             }}>
+              Service *
+            </label>
+            <select
+              value={selectedServiceId}
+              onChange={(e) => setSelectedServiceId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(15, 23, 42, 0.8)',
+                border: '1px solid rgba(30, 64, 175, 0.4)',
+                borderRadius: '0.6rem',
+                color: '#e5e7eb',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">Select a service...</option>
+              {loadingServices && <option disabled>Loading services...</option>}
+              {services.filter((s: any) => s.is_active !== false).map((s: any) => {
+                const id = s._id || s.id
+                const price = s.priceUSD ?? s.price
+                const label = price != null ? `${s.name} — $${Number(price).toLocaleString()}` : s.name
+                return <option key={id} value={id}>{label}</option>
+              })}
+              <option value="__custom__">— Or enter custom —</option>
+            </select>
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+              Choose an existing predefined service or enter custom details below
+            </p>
+          </div>
+          {(selectedServiceId === '__custom__' || !selectedServiceId) && (
+          <div style={{ marginBottom: '1.2rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontSize: '0.85rem', 
+              color: '#cbd5e1',
+              fontWeight: '500'
+            }}>
               Service Type *
             </label>
             <input
               type="text"
               value={formData.service}
               onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-              required
+              required={!selectedServiceId || selectedServiceId === '__custom__'}
               placeholder="Enter service name (e.g., Brand Identity Package)"
               style={{
                 width: '100%',
@@ -193,6 +273,7 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
               Type the name of the service you want to offer
             </p>
           </div>
+          )}
           <div style={{ marginBottom: '1.2rem' }}>
             <label style={{ 
               display: 'block', 
@@ -222,6 +303,36 @@ export function NewProjectForm({ onSubmit, onCancel }: NewProjectFormProps) {
             />
             <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
               Enter the price for this service (accessible to anyone via link)
+            </p>
+          </div>
+          <div style={{ marginBottom: '1.2rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem', 
+              fontSize: '0.85rem', 
+              color: '#cbd5e1',
+              fontWeight: '500'
+            }}>
+              Price (EUR) – optional
+            </label>
+            <input
+              type="text"
+              value={formData.service_price_eur}
+              onChange={(e) => setFormData({ ...formData, service_price_eur: e.target.value })}
+              placeholder="e.g., 4200 or €4,200"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(15, 23, 42, 0.8)',
+                border: '1px solid rgba(30, 64, 175, 0.4)',
+                borderRadius: '0.6rem',
+                color: '#e5e7eb',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit'
+              }}
+            />
+            <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#9ca3af' }}>
+              If set, the client can choose to pay in euros on the payment page
             </p>
           </div>
           <div style={{ marginBottom: '1.2rem' }}>

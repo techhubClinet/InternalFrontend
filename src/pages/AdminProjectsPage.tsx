@@ -1076,11 +1076,13 @@ export function AdminProjectsPage() {
                   project_type: data.project_type,
                   service: data.service || undefined,
                   service_price: data.service_price ? data.service_price.replace('$', '').replace(',', '') : undefined,
+                  service_price_eur: data.service_price_eur ? data.service_price_eur.replace(/[€$]/g, '').replace(/,/g, '').trim() || undefined : undefined,
                   service_description: data.service_description || undefined,
                   amount: data.amount ? data.amount.replace('$', '').replace(',', '') : undefined,
                   deadline: data.project_type === 'custom' ? (data.deadline || undefined) : undefined,
                   delivery_timeline: data.project_type === 'simple' ? data.delivery_timeline : undefined,
                   max_revisions: data.project_type === 'simple' && data.max_revisions != null ? data.max_revisions : undefined,
+                  selected_service_id: data.selected_service_id || undefined,
                 }),
               })
               

@@ -2,12 +2,17 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 
+type Currency = 'usd' | 'eur'
+
+const CURRENCY_SYMBOL: Record<Currency, string> = { usd: '$', eur: '€' }
+
 export function ClientPaymentPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const [project, setProject] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
+  const [currency, setCurrency] = useState<Currency>('usd')
 
   useEffect(() => {
     // Check authentication first - payment requires login
@@ -20,6 +25,17 @@ export function ClientPaymentPage() {
       loadProject()
     }
   }, [projectId, navigate])
+
+  // When project has no EUR price, keep currency on USD
+  useEffect(() => {
+    if (!project) return
+    const hasEur =
+      (project.service_price_eur != null && Number(project.service_price_eur) > 0) ||
+      (project.selected_service && typeof project.selected_service === 'object' && project.selected_service.priceEUR != null && Number(project.selected_service.priceEUR) > 0)
+    if (currency === 'eur' && !hasEur) {
+      setCurrency('usd')
+    }
+  }, [project, currency])
 
   const loadProject = async () => {
     try {
@@ -35,19 +51,28 @@ export function ClientPaymentPage() {
     }
   }
 
-  const getAmount = () => {
+  const getAmount = (cur: Currency) => {
     if (!project) return 0
-    // Admin-created custom project
     if (project.custom_quote_amount != null && project.custom_quote_amount > 0) {
       return project.custom_quote_amount
     }
-    // Admin-created simple project (price stored on project)
-    if (project.service_price != null && project.service_price > 0) {
-      return project.service_price
+    if (cur === 'eur') {
+      // EUR: only show when explicitly set; never use USD amount as EUR
+      if (project.service_price_eur != null && Number(project.service_price_eur) > 0) {
+        return Number(project.service_price_eur)
+      }
+      const svc = project.selected_service && typeof project.selected_service === 'object' ? project.selected_service : null
+      if (svc && svc.priceEUR != null && Number(svc.priceEUR) > 0) return Number(svc.priceEUR)
+      return 0
     }
-    // Client chose a service from catalog (selected_service populated)
-    if (project.selected_service && typeof project.selected_service === 'object') {
-      return project.selected_service.price || 0
+    // USD
+    if (project.service_price != null && Number(project.service_price) > 0) {
+      return Number(project.service_price)
+    }
+    const svc = project.selected_service && typeof project.selected_service === 'object' ? project.selected_service : null
+    if (svc) {
+      if (svc.priceUSD != null) return Number(svc.priceUSD)
+      return Number(svc.price) || 0
     }
     return 0
   }
@@ -69,7 +94,7 @@ export function ClientPaymentPage() {
   const handleCheckout = async () => {
     if (!projectId || !project) return
 
-    const amount = getAmount()
+    const amount = getAmount(currency)
     if (amount <= 0) {
       alert('No payment amount set for this project. Please contact support.')
       return
@@ -78,7 +103,8 @@ export function ClientPaymentPage() {
     setProcessing(true)
     try {
       const description = getServiceName()
-      const response: any = await api.createStripeCheckoutSession(projectId, amount, description)
+      const returnOrigin = typeof window !== 'undefined' ? window.location.origin : undefined
+      const response: any = await api.createStripeCheckoutSession(projectId, amount, description, currency, returnOrigin)
 
       if (response?.success && response?.data?.url) {
         window.location.href = response.data.url
@@ -107,8 +133,15 @@ export function ClientPaymentPage() {
     )
   }
 
-  const amount = getAmount()
+  const amount = getAmount(currency)
   const serviceName = getServiceName()
+  const symbol = CURRENCY_SYMBOL[currency]
+  const amountUsd = project ? getAmount('usd') : 0
+  const amountEur = project ? getAmount('eur') : 0
+  const hasUsd = amountUsd > 0
+  const hasEur = amountEur > 0
+  const canChooseCurrency = hasUsd && hasEur
+  const showCurrencyChoice = hasUsd || hasEur
 
   return (
     <section className="page">
@@ -125,6 +158,71 @@ export function ClientPaymentPage() {
           <h3 style={{ fontSize: '1.1rem', marginBottom: '1.2rem', color: '#0f172a' }}>
             Payment Summary
           </h3>
+
+          {/* Always ask "How would you like to pay?" when there is an amount – show USD and/or EUR */}
+          {showCurrencyChoice && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1.25rem',
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.25)',
+              borderRadius: '0.75rem'
+            }}>
+              <p style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: '600', color: '#1e40af' }}>
+                How would you like to pay?
+              </p>
+              <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#4b5563' }}>
+                {canChooseCurrency
+                  ? 'Choose your preferred payment currency. You will be charged in the selected currency.'
+                  : 'Select the payment currency below.'}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {hasUsd && (
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '1rem 1.25rem',
+                      background: currency === 'usd' ? 'rgba(29, 78, 216, 0.15)' : 'rgba(248, 250, 252, 0.9)',
+                      border: `2px solid ${currency === 'usd' ? '#1d4ed8' : 'rgba(226, 232, 240, 0.9)'}`,
+                      borderRadius: '0.6rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => setCurrency('usd')}
+                  >
+                    <span style={{ fontWeight: '600', color: '#0f172a', fontSize: '1rem' }}>Pay in US Dollars (USD)</span>
+                    <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '1.1rem' }}>${amountUsd.toLocaleString()}</span>
+                  </label>
+                )}
+                {hasEur && (
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '1rem 1.25rem',
+                      background: currency === 'eur' ? 'rgba(29, 78, 216, 0.15)' : 'rgba(248, 250, 252, 0.9)',
+                      border: `2px solid ${currency === 'eur' ? '#1d4ed8' : 'rgba(226, 232, 240, 0.9)'}`,
+                      borderRadius: '0.6rem',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => setCurrency('eur')}
+                  >
+                    <span style={{ fontWeight: '600', color: '#0f172a', fontSize: '1rem' }}>Pay in Euros (EUR)</span>
+                    <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '1.1rem' }}>€{amountEur.toLocaleString()}</span>
+                  </label>
+                )}
+                {!hasEur && hasUsd && (
+                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#64748b' }}>
+                    Euro (EUR) is not set for this service. To pay in EUR, ask the project owner to add a Price (EUR) in the catalog.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div style={{
             background: 'rgba(30, 64, 175, 0.1)',
@@ -146,8 +244,13 @@ export function ClientPaymentPage() {
               fontWeight: '600'
             }}>
               <span style={{ color: '#0f172a' }}>Total:</span>
-              <span style={{ color: '#1d4ed8' }}>${amount.toLocaleString()}</span>
+              <span style={{ color: '#1d4ed8' }}>{symbol}{amount.toLocaleString()}</span>
             </div>
+            {(showCurrencyChoice) && (
+              <div style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#6b7280' }}>
+                Paying in: {currency === 'eur' ? 'EUR' : 'USD'}
+              </div>
+            )}
           </div>
 
           <div style={{
@@ -179,7 +282,7 @@ export function ClientPaymentPage() {
               boxShadow: processing || amount === 0 ? 'none' : '0 8px 20px rgba(29, 78, 216, 0.4)'
             }}
           >
-            {processing ? 'Processing...' : `Pay $${amount.toLocaleString()} with Stripe`}
+            {processing ? 'Processing...' : `Pay ${symbol}${amount.toLocaleString()} with Stripe`}
           </button>
         </div>
 
