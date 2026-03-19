@@ -18,7 +18,7 @@ export function AdminProjectsPage() {
     import.meta.env.VITE_FRONTEND_URL ||
     (typeof window !== 'undefined'
       ? window.location.origin
-      : 'https://frontned-mblv.vercel.app')
+      : 'https://www.kanridesign.com')
 
   // Load projects and monthly invoices on initial mount
   useEffect(() => {

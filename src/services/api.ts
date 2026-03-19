@@ -1,7 +1,7 @@
 // Backend API base URL – use localhost in development so you can test against your local backend
 const API_BASE_URL =
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:3001/api' : 'https://frontned-one.vercel.app/api')
+  (import.meta.env.DEV ? 'http://localhost:3001/api' : 'https://backend-kappa-khaki-71.vercel.app/api')
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {

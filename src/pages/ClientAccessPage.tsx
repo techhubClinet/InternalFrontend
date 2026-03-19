@@ -50,7 +50,7 @@ export function ClientAccessPage() {
   const exampleBaseUrl =
     typeof window !== 'undefined'
       ? window.location.origin
-      : 'https://frontned-mblv.vercel.app'
+      : import.meta.env.VITE_FRONTEND_URL || 'https://www.kanridesign.com'
 
   return (
     <section className="page">
