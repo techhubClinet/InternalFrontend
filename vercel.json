@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://backend-kappa-khaki-71.vercel.app/api/$1" },
+    { "source": "/delivery/(.*)", "destination": "https://backend-kappa-khaki-71.vercel.app/delivery/$1" },
     { "source": "/client/(.*)", "destination": "/index.html" },
     { "source": "/admin/(.*)", "destination": "/index.html" },
     { "source": "/collaborator/(.*)", "destination": "/index.html" },

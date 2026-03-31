@@ -1,7 +1,8 @@
-// Backend API base URL – use localhost in development so you can test against your local backend
-const API_BASE_URL =
+// Backend API base URL – use localhost in dev; in production prefer same-origin /api unless env overrides.
+const API_BASE_URL = (
   import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:3001/api' : 'https://backend-kappa-khaki-71.vercel.app/api')
+  (import.meta.env.DEV ? 'http://localhost:3001/api' : `${window.location.origin}/api`)
+).replace(/\/$/, '')
 
 /** Base URL for API (use for fetch calls that need the same origin, e.g. invoice download). */
 export function getApiBaseUrl(): string {
@@ -10,6 +11,9 @@ export function getApiBaseUrl(): string {
 
 /** Base URL for the app (no /api) – use for professional delivery links: ${base}/delivery/:token */
 export function getDeliveryBaseUrl(): string {
+  if (import.meta.env.VITE_DELIVERY_BASE_URL) {
+    return String(import.meta.env.VITE_DELIVERY_BASE_URL).replace(/\/$/, '')
+  }
   return API_BASE_URL.replace(/\/api\/?$/, '') || API_BASE_URL
 }
 
