@@ -114,8 +114,18 @@ export function ClientDashboardPage() {
     })
     steps.push({ 
       label: 'Revision', 
-      status: project.status === 'revision' ? 'active' : 'pending',
-      date: project.status === 'revision' ? 'In Revision' : 'Pending',
+      status:
+        project.status === 'revision'
+          ? 'active'
+          : project.status === 'completed'
+          ? 'completed'
+          : 'pending',
+      date:
+        project.status === 'revision'
+          ? 'In Revision'
+          : project.status === 'completed'
+          ? ((project.revisions_used || 0) > 0 ? 'Resolved' : 'Not requested')
+          : 'Pending',
       note: notes.revision
     })
     steps.push({ 
@@ -140,6 +150,10 @@ export function ClientDashboardPage() {
 
   const handleOpenRevisionModal = () => {
     if (!project) return
+    if (project.status !== 'review') {
+      alert('Revisions can only be requested while the project is in review.')
+      return
+    }
     const revisionsUsed = project.revisions_used || 0
     const maxRevisions = project.max_revisions || 3
     const remaining = maxRevisions - revisionsUsed
@@ -221,6 +235,16 @@ export function ClientDashboardPage() {
   }
 
   const statusSteps = getStatusSteps()
+  const revisions = getAvailableRevisions()
+  const canRequestRevision = project.payment_status === 'paid' && project.status === 'review'
+  const revisionHelperText =
+    project.status === 'completed'
+      ? 'Project accepted: revisions are closed.'
+      : project.status === 'revision'
+      ? 'Revision request already in progress.'
+      : project.status !== 'review'
+      ? 'Revision requests are available during review.'
+      : `(Revisions: ${revisions.remaining} of ${revisions.max} left)`
 
   return (
     <section className="page">
@@ -315,37 +339,39 @@ export function ClientDashboardPage() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid rgba(30, 64, 175, 0.12)' }}>
                 <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#0f172a', marginRight: '0.25rem' }}>Your actions:</span>
                 <span style={{ fontSize: '0.8rem', color: '#64748b', marginRight: '0.5rem' }}>
-                  (Revisions: {getAvailableRevisions().remaining} of {getAvailableRevisions().max} left)
+                  {revisionHelperText}
                 </span>
-                <button
-                  onClick={handleOpenRevisionModal}
-                  disabled={getAvailableRevisions().remaining <= 0 || project.status === 'revision'}
-                  style={{
-                    padding: '0.6rem 1.25rem',
-                    background: getAvailableRevisions().remaining > 0 && project.status !== 'revision' ? '#f97316' : '#94a3b8',
-                    color: '#ffffff',
-                    border: 'none',
-                    borderRadius: '0.6rem',
-                    fontSize: '0.9rem',
-                    fontWeight: '600',
-                    cursor: getAvailableRevisions().remaining > 0 && project.status !== 'revision' ? 'pointer' : 'not-allowed',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (getAvailableRevisions().remaining > 0 && project.status !== 'revision') {
-                      e.currentTarget.style.background = '#ea580c'
-                      e.currentTarget.style.transform = 'translateY(-1px)'
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (getAvailableRevisions().remaining > 0 && project.status !== 'revision') {
-                      e.currentTarget.style.background = '#f97316'
-                      e.currentTarget.style.transform = 'translateY(0)'
-                    }
-                  }}
-                >
-                  🔁 {project.status === 'revision' ? 'Revision in progress' : 'Request revision'}
-                </button>
+                {canRequestRevision && (
+                  <button
+                    onClick={handleOpenRevisionModal}
+                    disabled={revisions.remaining <= 0}
+                    style={{
+                      padding: '0.6rem 1.25rem',
+                      background: revisions.remaining > 0 ? '#f97316' : '#94a3b8',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '0.6rem',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      cursor: revisions.remaining > 0 ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (revisions.remaining > 0) {
+                        e.currentTarget.style.background = '#ea580c'
+                        e.currentTarget.style.transform = 'translateY(-1px)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (revisions.remaining > 0) {
+                        e.currentTarget.style.background = '#f97316'
+                        e.currentTarget.style.transform = 'translateY(0)'
+                      }
+                    }}
+                  >
+                    🔁 Request revision
+                  </button>
+                )}
                 {project.status === 'review' && (
                   <button
                     onClick={handleAcceptDelivery}

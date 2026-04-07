@@ -6,6 +6,20 @@ type Currency = 'usd' | 'eur'
 
 const CURRENCY_SYMBOL: Record<Currency, string> = { usd: '$', eur: '€' }
 
+function parseAmount(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  if (typeof value !== 'string') return 0
+  const raw = value.trim()
+  if (!raw) return 0
+  const cleaned = raw.replace(/[^\d,.-]/g, '')
+  const normalized =
+    cleaned.includes(',') && !cleaned.includes('.')
+      ? cleaned.replace(',', '.')
+      : cleaned.replace(/,/g, '')
+  const parsed = parseFloat(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 export function ClientPaymentPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
@@ -30,8 +44,21 @@ export function ClientPaymentPage() {
   useEffect(() => {
     if (!project) return
     const hasEur =
-      (project.service_price_eur != null && Number(project.service_price_eur) > 0) ||
-      (project.selected_service && typeof project.selected_service === 'object' && project.selected_service.priceEUR != null && Number(project.selected_service.priceEUR) > 0)
+      parseAmount(project.service_price_eur) > 0 ||
+      (project.selected_service &&
+        typeof project.selected_service === 'object' &&
+        parseAmount(project.selected_service.priceEUR) > 0)
+    const hasUsd =
+      parseAmount(project.service_price) > 0 ||
+      (project.selected_service &&
+        typeof project.selected_service === 'object' &&
+        (parseAmount(project.selected_service.priceUSD) > 0 || parseAmount(project.selected_service.price) > 0))
+
+    // If only one currency is valid, auto-select it.
+    if (hasEur && !hasUsd && currency !== 'eur') {
+      setCurrency('eur')
+      return
+    }
     if (currency === 'eur' && !hasEur) {
       setCurrency('usd')
     }
@@ -58,21 +85,25 @@ export function ClientPaymentPage() {
     }
     if (cur === 'eur') {
       // EUR: only show when explicitly set; never use USD amount as EUR
-      if (project.service_price_eur != null && Number(project.service_price_eur) > 0) {
-        return Number(project.service_price_eur)
+      const eurDirect = parseAmount(project.service_price_eur)
+      if (eurDirect > 0) {
+        return eurDirect
       }
       const svc = project.selected_service && typeof project.selected_service === 'object' ? project.selected_service : null
-      if (svc && svc.priceEUR != null && Number(svc.priceEUR) > 0) return Number(svc.priceEUR)
+      const eurFromService = svc ? parseAmount(svc.priceEUR) : 0
+      if (eurFromService > 0) return eurFromService
       return 0
     }
     // USD
-    if (project.service_price != null && Number(project.service_price) > 0) {
-      return Number(project.service_price)
+    const usdDirect = parseAmount(project.service_price)
+    if (usdDirect > 0) {
+      return usdDirect
     }
     const svc = project.selected_service && typeof project.selected_service === 'object' ? project.selected_service : null
     if (svc) {
-      if (svc.priceUSD != null) return Number(svc.priceUSD)
-      return Number(svc.price) || 0
+      const usdFromService = parseAmount(svc.priceUSD)
+      if (usdFromService > 0) return usdFromService
+      return parseAmount(svc.price)
     }
     return 0
   }
