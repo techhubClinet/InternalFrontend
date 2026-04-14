@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { api } from '../services/api'
 import { Modal } from '../components/Modal'
 
@@ -20,6 +20,7 @@ export function ClientAllProjectsPage() {
   })
   const [submitting, setSubmitting] = useState(false)
   const [startingProjectId, setStartingProjectId] = useState<string | null>(null)
+  const [catalogSort, setCatalogSort] = useState<'price_asc' | 'price_desc'>('price_asc')
 
   useEffect(() => {
     loadProjects(false)
@@ -144,6 +145,32 @@ export function ClientAllProjectsPage() {
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
+
+  const getProjectPrice = (project: any): number => {
+    if (project.custom_quote_amount != null) {
+      return Number(project.custom_quote_amount) || 0
+    }
+    if (project.service_price != null) {
+      return Number(project.service_price) || 0
+    }
+    if (project.selected_service && typeof project.selected_service === 'object' && project.selected_service.price != null) {
+      return Number(project.selected_service.price) || 0
+    }
+    return 0
+  }
+
+  const sortedCatalog = useMemo(() => {
+    const list = [...catalog]
+    list.sort((a: any, b: any) => {
+      const priceA = getProjectPrice(a)
+      const priceB = getProjectPrice(b)
+      if (priceA !== priceB) {
+        return catalogSort === 'price_asc' ? priceA - priceB : priceB - priceA
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    })
+    return list
+  }, [catalog, catalogSort])
 
   const handleRequestCustomOffer = async () => {
     if (!api.isAuthenticated()) {
@@ -412,6 +439,27 @@ export function ClientAllProjectsPage() {
           {/* Buy Services (catalog) – shown when not logged in, or when tab is catalog */}
           {(!user || activeTab === 'catalog') && (
             <>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                  Sort by price:
+                  <select
+                    value={catalogSort}
+                    onChange={(e) => setCatalogSort(e.target.value as 'price_asc' | 'price_desc')}
+                    style={{
+                      padding: '0.45rem 0.6rem',
+                      borderRadius: '0.45rem',
+                      border: '1px solid rgba(148, 163, 184, 0.7)',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '0.88rem'
+                    }}
+                  >
+                    <option value="price_asc">Price: Low to High</option>
+                    <option value="price_desc">Price: High to Low</option>
+                  </select>
+                </label>
+              </div>
+
               {!user && (
                 <div style={{
                   padding: '1rem',
@@ -432,7 +480,7 @@ export function ClientAllProjectsPage() {
                 </div>
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.5rem' }}>
-                  {catalog.map((project) => {
+                  {sortedCatalog.map((project) => {
                     const projectId = project._id || project.id
                     if (!api.isAuthenticated()) {
                       return (

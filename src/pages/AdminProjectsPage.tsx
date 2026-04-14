@@ -12,6 +12,7 @@ export function AdminProjectsPage() {
   const [monthlyInvoices, setMonthlyInvoices] = useState<any[]>([])
   const [loadingMonthlyInvoices, setLoadingMonthlyInvoices] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [catalogSort, setCatalogSort] = useState<'price_asc' | 'price_desc'>('price_asc')
 
   // Frontend base URL for client access links (localhost for testing)
   const frontendBaseUrl =
@@ -114,6 +115,23 @@ export function AdminProjectsPage() {
       return `$${project.selected_service.price?.toLocaleString() || '0'}`
     }
     return 'TBD'
+  }
+
+  /** Numeric price for predefined catalog sorting (aligned with formatAmount). */
+  const getCatalogPrice = (project: any): number => {
+    if (project.project_type === 'simple' && project.service_price != null && project.service_price !== '') {
+      return Number(project.service_price) || 0
+    }
+    if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
+      return Number(project.custom_quote_amount) || 0
+    }
+    if (project.service_price != null && project.service_price !== '') {
+      return Number(project.service_price) || 0
+    }
+    if (project.selected_service && typeof project.selected_service === 'object' && project.selected_service.price != null) {
+      return Number(project.selected_service.price) || 0
+    }
+    return 0
   }
 
   return (
@@ -344,6 +362,26 @@ export function AdminProjectsPage() {
                 </button>
               </div>
             </div>
+            {activeTab === 'all' && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                Sort by price:
+                <select
+                  value={catalogSort}
+                  onChange={(e) => setCatalogSort(e.target.value as 'price_asc' | 'price_desc')}
+                  style={{
+                    padding: '0.45rem 0.6rem',
+                    borderRadius: '0.45rem',
+                    border: '1px solid rgba(148, 163, 184, 0.7)',
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    fontSize: '0.88rem',
+                  }}
+                >
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                </select>
+              </label>
+            )}
             <button 
               onClick={() => setIsNewProjectOpen(true)}
               style={{
@@ -623,6 +661,14 @@ export function AdminProjectsPage() {
                 if (!byKey[key]) byKey[key] = p
               })
               const catalogList = Object.values(byKey)
+              const sortedCatalogList = [...catalogList].sort((a: any, b: any) => {
+                const pa = getCatalogPrice(a)
+                const pb = getCatalogPrice(b)
+                if (pa !== pb) {
+                  return catalogSort === 'price_asc' ? pa - pb : pb - pa
+                }
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              })
               if (viewMode === 'grid') {
                 return (
                   <div style={{
@@ -630,7 +676,7 @@ export function AdminProjectsPage() {
                     gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                     gap: '1.5rem'
                   }}>
-                    {catalogList.map((project: any) => {
+                    {sortedCatalogList.map((project: any) => {
                       const projectId = project._id || project.id
                       const cardStyle = {
                         display: 'flex',
@@ -786,7 +832,7 @@ export function AdminProjectsPage() {
                     <span>Price</span>
                     <span>Delivery</span>
                   </div>
-                  {catalogList.map((project: any) => {
+                  {sortedCatalogList.map((project: any) => {
                     const projectId = project._id || project.id
                     return (
                       <Link
