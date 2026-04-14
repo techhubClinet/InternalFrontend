@@ -282,6 +282,9 @@ export function ClientPaymentPage() {
                 Paying in: {currency === 'eur' ? 'EUR' : 'USD'}
               </div>
             )}
+            <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#64748b' }}>
+              Tax is calculated automatically at Stripe Checkout based on your billing country.
+            </div>
           </div>
 
           <div style={{
