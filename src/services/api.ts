@@ -146,8 +146,9 @@ class ApiService {
   }
 
   // Service endpoints
-  async getServices() {
-    return this.request(`/services`)
+  async getServices(sort?: 'price_asc' | 'price_desc') {
+    const query = sort ? `?sort=${encodeURIComponent(sort)}` : ''
+    return this.request(`/services${query}`)
   }
 
   async getService(serviceId: string) {

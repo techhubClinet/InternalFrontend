@@ -5,6 +5,7 @@ import { api } from '../services/api'
 export function ClientServiceSelectionPage() {
   const { projectId } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
+  const [sortOption, setSortOption] = useState<'price_asc' | 'price_desc'>('price_asc')
   const [selectedService, setSelectedService] = useState<string | null>(null)
   const [services, setServices] = useState<any[]>([])
   const [project, setProject] = useState<any>(null)
@@ -25,11 +26,11 @@ export function ClientServiceSelectionPage() {
     }
 
     if (projectId) {
-      loadData()
+      loadData(sortOption)
     }
-  }, [projectId, navigate])
+  }, [projectId, navigate, sortOption])
 
-  const loadData = async () => {
+  const loadData = async (sort: 'price_asc' | 'price_desc') => {
     try {
       setLoading(true)
       const projectRes = await api.getProject(projectId!)
@@ -53,7 +54,7 @@ export function ClientServiceSelectionPage() {
         } else {
           // For custom projects or if no service_price, load from services API
           try {
-            const servicesRes = await api.getServices()
+            const servicesRes = await api.getServices(sort)
             if (servicesRes.success) {
               setServices(servicesRes.data || [])
             }
@@ -111,7 +112,7 @@ export function ClientServiceSelectionPage() {
       if (response.success) {
         alert('Custom quote request submitted! Admin will review and send you a quote.')
         // Reload project to see updated status
-        loadData()
+        loadData(sortOption)
         setShowCustomRequest(false)
       } else {
         alert('Failed to submit request. Please try again.')
@@ -261,6 +262,29 @@ export function ClientServiceSelectionPage() {
           <h3 style={{ fontSize: '1rem', marginBottom: '1rem', color: '#0f172a' }}>
             Predefined Services
           </h3>
+
+          {services.length > 1 && (
+            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                Sort by price:
+                <select
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value as 'price_asc' | 'price_desc')}
+                  style={{
+                    padding: '0.45rem 0.6rem',
+                    borderRadius: '0.45rem',
+                    border: '1px solid rgba(148, 163, 184, 0.7)',
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    fontSize: '0.88rem'
+                  }}
+                >
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                </select>
+              </label>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gap: '1rem' }}>
             {services.map((service) => (
