@@ -32,6 +32,34 @@ export function AssignCollaboratorForm({
     setPaymentAmount(currentPaymentAmount != null ? currentPaymentAmount.toString() : '')
   }, [currentPaymentAmount])
 
+  const parseAmountInput = (rawAmount: string): number => {
+    const cleaned = rawAmount.replace(/\s/g, '').replace(/\$/g, '')
+    if (!cleaned) return NaN
+
+    const hasComma = cleaned.includes(',')
+    const hasDot = cleaned.includes('.')
+
+    let normalized = cleaned
+
+    if (hasComma && hasDot) {
+      // Use the last separator as decimal and treat the other as thousands.
+      const lastComma = cleaned.lastIndexOf(',')
+      const lastDot = cleaned.lastIndexOf('.')
+      const decimalSeparator = lastComma > lastDot ? ',' : '.'
+      const thousandsSeparator = decimalSeparator === ',' ? '.' : ','
+      normalized = cleaned.split(thousandsSeparator).join('')
+      if (decimalSeparator === ',') {
+        normalized = normalized.replace(',', '.')
+      }
+    } else if (hasComma) {
+      // Treat comma as decimal separator when dot is not present.
+      normalized = cleaned.replace(',', '.')
+    }
+
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : NaN
+  }
+
   const loadCollaborators = async () => {
     try {
       setLoading(true)
@@ -48,15 +76,17 @@ export function AssignCollaboratorForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const amount = parseAmountInput(paymentAmount)
+
     if (!collaboratorId) {
       alert('Please select a collaborator')
       return
     }
-    if (!paymentAmount || parseFloat(paymentAmount.replace('$', '').replace(',', '')) <= 0) {
+    if (!paymentAmount || Number.isNaN(amount) || amount <= 0) {
       alert('Please enter a valid payment amount')
       return
     }
-    const amount = parseFloat(paymentAmount.replace('$', '').replace(',', ''))
+
     onSubmit(collaboratorId, amount)
   }
 
@@ -132,7 +162,7 @@ export function AssignCollaboratorForm({
           value={paymentAmount}
           onChange={(e) => setPaymentAmount(e.target.value)}
           required
-          placeholder="e.g., 500 or $500"
+          placeholder="e.g., 500, 500.5, or 500,5"
           style={{
             width: '100%',
             padding: '0.75rem',
@@ -149,6 +179,10 @@ export function AssignCollaboratorForm({
           }}
           onBlur={(e) => {
             e.currentTarget.style.borderColor = 'rgba(30, 64, 175, 0.4)'
+            const parsed = parseAmountInput(e.currentTarget.value)
+            if (!Number.isNaN(parsed) && parsed > 0) {
+              setPaymentAmount(parsed.toString())
+            }
           }}
         />
         <p style={{ 
