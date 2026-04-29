@@ -446,15 +446,36 @@ export function AdminProjectDetailPage() {
     return labels[status] || status
   }
 
+  const getProjectCurrency = (): 'usd' | 'eur' => {
+    return project?.currency === 'eur' ? 'eur' : 'usd'
+  }
+
+  const formatCurrencyAmount = (value: number | string | undefined | null, currencyOverride?: 'usd' | 'eur') => {
+    if (value == null || value === '') return 'TBD'
+    const amount = Number(value)
+    if (!Number.isFinite(amount)) return 'TBD'
+    const currency = currencyOverride || getProjectCurrency()
+    const symbol = currency === 'eur' ? '€' : '$'
+    return `${symbol}${amount.toLocaleString()}`
+  }
+
   const formatClientAmount = () => {
-    if (project.custom_quote_amount) {
-      return `$${project.custom_quote_amount.toLocaleString()}`
+    if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
+      return formatCurrencyAmount(project.custom_quote_amount)
     }
-    if (project.service_price) {
-      return `$${project.service_price.toLocaleString()}`
+    if (getProjectCurrency() === 'eur' && project.service_price_eur != null && project.service_price_eur !== '') {
+      return formatCurrencyAmount(project.service_price_eur, 'eur')
+    }
+    if (project.service_price != null && project.service_price !== '') {
+      return formatCurrencyAmount(project.service_price)
     }
     if (project.selected_service && typeof project.selected_service === 'object') {
-      return `$${project.selected_service.price?.toLocaleString() || '0'}`
+      if (getProjectCurrency() === 'eur' && project.selected_service.priceEUR != null) {
+        return formatCurrencyAmount(project.selected_service.priceEUR, 'eur')
+      }
+      if (project.selected_service.price != null) {
+        return formatCurrencyAmount(project.selected_service.price, 'usd')
+      }
     }
     return 'TBD'
   }

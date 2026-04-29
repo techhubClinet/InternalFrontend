@@ -101,20 +101,52 @@ export function AdminProjectsPage() {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  const formatAmount = (project: any) => {
-    if (project.project_type === 'simple' && (project.service_price != null && project.service_price !== '')) {
-      return `$${Number(project.service_price).toLocaleString()}`
-    }
+  const getProjectCurrency = (project: any): 'usd' | 'eur' => {
+    return project?.currency === 'eur' ? 'eur' : 'usd'
+  }
+
+  const formatMoney = (value: unknown, currency: 'usd' | 'eur') => {
+    const amount = Number(value)
+    if (!Number.isFinite(amount)) return 'TBD'
+    return `${currency === 'eur' ? '€' : '$'}${amount.toLocaleString()}`
+  }
+
+  const resolveClientAmount = (project: any): { value: number; currency: 'usd' | 'eur' } | null => {
+    const currency = getProjectCurrency(project)
+
     if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
-      return `$${Number(project.custom_quote_amount).toLocaleString()}`
+      const value = Number(project.custom_quote_amount)
+      return Number.isFinite(value) ? { value, currency } : null
     }
+
+    if (currency === 'eur' && project.service_price_eur != null && project.service_price_eur !== '') {
+      const value = Number(project.service_price_eur)
+      return Number.isFinite(value) ? { value, currency: 'eur' } : null
+    }
+
     if (project.service_price != null && project.service_price !== '') {
-      return `$${Number(project.service_price).toLocaleString()}`
+      const value = Number(project.service_price)
+      return Number.isFinite(value) ? { value, currency } : null
     }
+
     if (project.selected_service && typeof project.selected_service === 'object') {
-      return `$${project.selected_service.price?.toLocaleString() || '0'}`
+      if (currency === 'eur' && project.selected_service.priceEUR != null) {
+        const value = Number(project.selected_service.priceEUR)
+        return Number.isFinite(value) ? { value, currency: 'eur' } : null
+      }
+      if (project.selected_service.price != null) {
+        const value = Number(project.selected_service.price)
+        return Number.isFinite(value) ? { value, currency: 'usd' } : null
+      }
     }
-    return 'TBD'
+
+    return null
+  }
+
+  const formatAmount = (project: any) => {
+    const resolved = resolveClientAmount(project)
+    if (!resolved) return 'TBD'
+    return formatMoney(resolved.value, resolved.currency)
   }
 
   /** Numeric price for predefined catalog sorting (aligned with formatAmount). */
