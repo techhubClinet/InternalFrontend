@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
+import { getCatalogDisplayCurrency, setCatalogDisplayCurrency } from '../utils/catalogCurrency'
 
 type Currency = 'usd' | 'eur'
 
@@ -69,7 +70,25 @@ export function ClientPaymentPage() {
       setLoading(true)
       const response: any = await api.getProjectDetails(projectId!)
       if (response.success) {
-        setProject(response.data.project)
+        const p = response.data.project
+        setProject(p)
+        const hasEur =
+          parseAmount(p.service_price_eur) > 0 ||
+          (p.selected_service &&
+            typeof p.selected_service === 'object' &&
+            parseAmount(p.selected_service.priceEUR) > 0)
+        const hasUsd =
+          parseAmount(p.service_price) > 0 ||
+          (p.selected_service &&
+            typeof p.selected_service === 'object' &&
+            (parseAmount(p.selected_service.priceUSD) > 0 || parseAmount(p.selected_service.price) > 0))
+        if (hasEur && hasUsd) {
+          setCurrency(getCatalogDisplayCurrency() === 'eur' ? 'eur' : 'usd')
+        } else if (hasEur && !hasUsd) {
+          setCurrency('eur')
+        } else {
+          setCurrency('usd')
+        }
       }
     } catch (error) {
       console.error('Failed to load project:', error)
@@ -221,7 +240,10 @@ export function ClientPaymentPage() {
                       cursor: 'pointer',
                       transition: 'all 0.2s'
                     }}
-                    onClick={() => setCurrency('usd')}
+                    onClick={() => {
+                      setCurrency('usd')
+                      setCatalogDisplayCurrency('usd')
+                    }}
                   >
                     <span style={{ fontWeight: '600', color: '#0f172a', fontSize: '1rem' }}>Pay in US Dollars (USD)</span>
                     <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '1.1rem' }}>${amountUsd.toLocaleString()}</span>
@@ -240,7 +262,10 @@ export function ClientPaymentPage() {
                       cursor: 'pointer',
                       transition: 'all 0.2s'
                     }}
-                    onClick={() => setCurrency('eur')}
+                    onClick={() => {
+                      setCurrency('eur')
+                      setCatalogDisplayCurrency('eur')
+                    }}
                   >
                     <span style={{ fontWeight: '600', color: '#0f172a', fontSize: '1rem' }}>Pay in Euros (EUR)</span>
                     <span style={{ fontWeight: '700', color: '#1d4ed8', fontSize: '1.1rem' }}>€{amountEur.toLocaleString()}</span>
@@ -283,7 +308,7 @@ export function ClientPaymentPage() {
               </div>
             )}
             <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#64748b' }}>
-              Tax is calculated automatically at Stripe Checkout based on your billing country.
+              VAT/tax is calculated at Stripe Checkout from your billing country and added on top of the service price shown above.
             </div>
           </div>
 

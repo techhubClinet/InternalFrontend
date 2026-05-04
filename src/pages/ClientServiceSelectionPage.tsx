@@ -1,6 +1,27 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
+import {
+  getCatalogDisplayCurrency,
+  setCatalogDisplayCurrency,
+  type CatalogDisplayCurrency,
+} from '../utils/catalogCurrency'
+
+function numPrice(v: unknown): number {
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0
+  if (typeof v === 'string') {
+    const n = parseFloat(v.replace(/[^\d.-]/g, ''))
+    return Number.isFinite(n) ? n : 0
+  }
+  return 0
+}
+
+function formatServiceMoney(service: any, cur: CatalogDisplayCurrency): string {
+  const usd = numPrice(service.priceUSD ?? service.price)
+  const eur = numPrice(service.priceEUR)
+  if (cur === 'eur' && eur > 0) return `€${eur.toLocaleString()}`
+  return `$${(usd > 0 ? usd : 0).toLocaleString()}`
+}
 
 export function ClientServiceSelectionPage() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -17,6 +38,14 @@ export function ClientServiceSelectionPage() {
     preferred_timeline: '30 days'
   })
   const [requestingCustom, setRequestingCustom] = useState(false)
+  const [displayCurrency, setDisplayCurrencyState] = useState<CatalogDisplayCurrency>(() =>
+    getCatalogDisplayCurrency()
+  )
+
+  const setDisplayCurrency = (c: CatalogDisplayCurrency) => {
+    setCatalogDisplayCurrency(c)
+    setDisplayCurrencyState(c)
+  }
 
   useEffect(() => {
     // Check authentication first
@@ -48,6 +77,8 @@ export function ClientServiceSelectionPage() {
             name: projectData.service_name || projectData.name || 'Service',
             description: projectData.service_description || `Service for ${projectData.name}`,
             price: projectData.service_price,
+            priceUSD: projectData.service_price,
+            priceEUR: projectData.service_price_eur,
             delivery_timeline: projectData.delivery_timeline || '30 days',
             max_revisions: projectData.max_revisions ?? 3
           }])
@@ -69,6 +100,15 @@ export function ClientServiceSelectionPage() {
       setLoading(false)
     }
   }
+
+  const servicesHaveEur = services.some((s: any) => numPrice(s.priceEUR) > 0)
+
+  useEffect(() => {
+    if (services.length === 0) return
+    if (!servicesHaveEur) {
+      setDisplayCurrency('usd')
+    }
+  }, [services.length, servicesHaveEur])
 
   const handleServiceSelect = async (serviceId: string | null, customAmount?: number) => {
     if (!projectId) return
@@ -263,8 +303,53 @@ export function ClientServiceSelectionPage() {
             Predefined Services
           </h3>
 
-          {services.length > 1 && (
-            <div style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+          {(services.length > 1 || servicesHaveEur) && (
+            <div style={{
+              marginBottom: '1rem',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1rem'
+            }}>
+              {servicesHaveEur && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                  <span style={{ fontWeight: 500 }}>Prices in:</span>
+                  <button
+                    type="button"
+                    onClick={() => setDisplayCurrency('usd')}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      borderRadius: '0.45rem',
+                      border: `1px solid ${displayCurrency === 'usd' ? '#1d4ed8' : 'rgba(148, 163, 184, 0.7)'}`,
+                      background: displayCurrency === 'usd' ? 'rgba(29, 78, 216, 0.12)' : '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    USD ($)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisplayCurrency('eur')}
+                    style={{
+                      padding: '0.4rem 0.75rem',
+                      borderRadius: '0.45rem',
+                      border: `1px solid ${displayCurrency === 'eur' ? '#1d4ed8' : 'rgba(148, 163, 184, 0.7)'}`,
+                      background: displayCurrency === 'eur' ? 'rgba(29, 78, 216, 0.12)' : '#ffffff',
+                      color: '#0f172a',
+                      fontSize: '0.88rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    EUR (€)
+                  </button>
+                </div>
+              )}
+              {services.length > 1 && (
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
                 Sort by price:
                 <select
@@ -283,6 +368,7 @@ export function ClientServiceSelectionPage() {
                   <option value="price_desc">Price: High to Low</option>
                 </select>
               </label>
+              )}
             </div>
           )}
 
@@ -328,7 +414,7 @@ export function ClientServiceSelectionPage() {
                     )}
                   </div>
                   <div style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1d4ed8', marginLeft: '1rem', whiteSpace: 'nowrap' }}>
-                    ${service.price?.toLocaleString() || '0'}
+                    {formatServiceMoney(service, displayCurrency)}
                   </div>
                 </div>
 

@@ -2,6 +2,11 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../services/api'
 import { Modal } from '../components/Modal'
+import {
+  getCatalogDisplayCurrency,
+  setCatalogDisplayCurrency,
+  type CatalogDisplayCurrency,
+} from '../utils/catalogCurrency'
 
 export function ClientAllProjectsPage() {
   const navigate = useNavigate()
@@ -21,6 +26,14 @@ export function ClientAllProjectsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [startingProjectId, setStartingProjectId] = useState<string | null>(null)
   const [catalogSort, setCatalogSort] = useState<'price_asc' | 'price_desc'>('price_asc')
+  const [displayCurrency, setDisplayCurrencyState] = useState<CatalogDisplayCurrency>(() =>
+    getCatalogDisplayCurrency()
+  )
+
+  const setDisplayCurrency = (c: CatalogDisplayCurrency) => {
+    setCatalogDisplayCurrency(c)
+    setDisplayCurrencyState(c)
+  }
 
   useEffect(() => {
     loadProjects(false)
@@ -43,8 +56,10 @@ export function ClientAllProjectsPage() {
 
   const getServiceKey = (p: any) => {
     const name = p.name || ''
-    const price = p.service_price ?? p.custom_quote_amount ?? (p.selected_service?.price ?? '')
-    return `${name}|${price}`
+    const usd = p.service_price ?? ''
+    const eur = p.service_price_eur ?? ''
+    const custom = p.custom_quote_amount ?? ''
+    return `${name}|${usd}|${eur}|${custom}`
   }
 
   const loadProjects = async (silent = false) => {
@@ -63,6 +78,15 @@ export function ClientAllProjectsPage() {
       const catalogList = Object.values(catalogByKey).sort(
         (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       )
+      if (catalogList.length > 0) {
+        const hasAnyEur = catalogList.some((p: any) => {
+          const eur = Number(p.service_price_eur)
+          return Number.isFinite(eur) && eur > 0
+        })
+        if (!hasAnyEur) {
+          setDisplayCurrency('usd')
+        }
+      }
       setCatalog(catalogList)
 
       if (api.isAuthenticated()) {
@@ -130,14 +154,27 @@ export function ClientAllProjectsPage() {
   }
 
   const formatAmount = (project: any) => {
-    if (project.custom_quote_amount) {
-      return `$${project.custom_quote_amount.toLocaleString()}`
+    if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
+      const n = Number(project.custom_quote_amount)
+      if (!Number.isFinite(n)) return 'TBD'
+      const cur = project.currency === 'eur' ? 'eur' : 'usd'
+      const sym = cur === 'eur' ? '€' : '$'
+      return `${sym}${n.toLocaleString()}`
     }
-    if (project.service_price) {
-      return `$${project.service_price.toLocaleString()}`
+    if (displayCurrency === 'eur') {
+      const eur = Number(project.service_price_eur)
+      if (Number.isFinite(eur) && eur > 0) {
+        return `€${eur.toLocaleString()}`
+      }
+      return '—'
+    }
+    if (project.service_price != null && project.service_price !== '') {
+      return `$${Number(project.service_price).toLocaleString()}`
     }
     if (project.selected_service && typeof project.selected_service === 'object') {
-      return `$${project.selected_service.price?.toLocaleString() || '0'}`
+      const svc = project.selected_service
+      const usd = Number(svc.priceUSD ?? svc.price)
+      if (Number.isFinite(usd) && usd > 0) return `$${usd.toLocaleString()}`
     }
     return 'TBD'
   }
@@ -146,31 +183,44 @@ export function ClientAllProjectsPage() {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  const getProjectPrice = (project: any): number => {
-    if (project.custom_quote_amount != null) {
-      return Number(project.custom_quote_amount) || 0
+  const getCatalogSortPrice = (project: any): number | null => {
+    if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
+      const n = Number(project.custom_quote_amount)
+      return Number.isFinite(n) ? n : null
     }
-    if (project.service_price != null) {
-      return Number(project.service_price) || 0
+    if (displayCurrency === 'eur') {
+      const eur = Number(project.service_price_eur)
+      return Number.isFinite(eur) && eur > 0 ? eur : null
     }
-    if (project.selected_service && typeof project.selected_service === 'object' && project.selected_service.price != null) {
-      return Number(project.selected_service.price) || 0
+    if (project.service_price != null && project.service_price !== '') {
+      const n = Number(project.service_price)
+      return Number.isFinite(n) ? n : null
     }
-    return 0
+    if (project.selected_service && typeof project.selected_service === 'object') {
+      const svc = project.selected_service
+      const usd = Number(svc.priceUSD ?? svc.price)
+      return Number.isFinite(usd) ? usd : null
+    }
+    return null
   }
 
   const sortedCatalog = useMemo(() => {
     const list = [...catalog]
     list.sort((a: any, b: any) => {
-      const priceA = getProjectPrice(a)
-      const priceB = getProjectPrice(b)
+      const priceA = getCatalogSortPrice(a)
+      const priceB = getCatalogSortPrice(b)
+      if (priceA == null && priceB == null) {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+      if (priceA == null) return 1
+      if (priceB == null) return -1
       if (priceA !== priceB) {
         return catalogSort === 'price_asc' ? priceA - priceB : priceB - priceA
       }
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     })
     return list
-  }, [catalog, catalogSort])
+  }, [catalog, catalogSort, displayCurrency])
 
   const handleRequestCustomOffer = async () => {
     if (!api.isAuthenticated()) {
@@ -439,7 +489,57 @@ export function ClientAllProjectsPage() {
           {/* Buy Services (catalog) – shown when not logged in, or when tab is catalog */}
           {(!user || activeTab === 'catalog') && (
             <>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+              {(() => {
+                const catalogHasEur = catalog.some((p: any) => {
+                  const eur = Number(p.service_price_eur)
+                  return Number.isFinite(eur) && eur > 0
+                })
+                return (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '1rem',
+                marginBottom: '1rem'
+              }}>
+                {catalogHasEur && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                    <span style={{ fontWeight: 500 }}>Prices in:</span>
+                    <button
+                      type="button"
+                      onClick={() => setDisplayCurrency('usd')}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '0.45rem',
+                        border: `1px solid ${displayCurrency === 'usd' ? '#1d4ed8' : 'rgba(148, 163, 184, 0.7)'}`,
+                        background: displayCurrency === 'usd' ? 'rgba(29, 78, 216, 0.12)' : '#ffffff',
+                        color: '#0f172a',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      USD ($)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDisplayCurrency('eur')}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '0.45rem',
+                        border: `1px solid ${displayCurrency === 'eur' ? '#1d4ed8' : 'rgba(148, 163, 184, 0.7)'}`,
+                        background: displayCurrency === 'eur' ? 'rgba(29, 78, 216, 0.12)' : '#ffffff',
+                        color: '#0f172a',
+                        fontSize: '0.88rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      EUR (€)
+                    </button>
+                  </div>
+                )}
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
                   Sort by price:
                   <select
@@ -459,6 +559,8 @@ export function ClientAllProjectsPage() {
                   </select>
                 </label>
               </div>
+                )
+              })()}
 
               {!user && (
                 <div style={{
