@@ -68,17 +68,19 @@ export function ClientServiceSelectionPage() {
         const projectData = projectRes.data
         setProject(projectData)
         
-        // For simple projects, show the service with price from the project
-        if (projectData.project_type === 'simple' && projectData.service_price) {
+        // For simple projects, show the service with price from the project (USD and/or EUR)
+        const simpleUsd = numPrice(projectData.service_price)
+        const simpleEur = numPrice(projectData.service_price_eur)
+        if (projectData.project_type === 'simple' && (simpleUsd > 0 || simpleEur > 0)) {
           // Create a service object from the project data (predefined catalog item)
           setServices([{
             _id: projectId,
             id: projectId,
             name: projectData.service_name || projectData.name || 'Service',
             description: projectData.service_description || `Service for ${projectData.name}`,
-            price: projectData.service_price,
-            priceUSD: projectData.service_price,
-            priceEUR: projectData.service_price_eur,
+            price: simpleUsd > 0 ? simpleUsd : simpleEur,
+            priceUSD: simpleUsd > 0 ? simpleUsd : 0,
+            priceEUR: simpleEur > 0 ? simpleEur : 0,
             delivery_timeline: projectData.delivery_timeline || '30 days',
             max_revisions: projectData.max_revisions ?? 3
           }])
@@ -118,7 +120,10 @@ export function ClientServiceSelectionPage() {
       
       // For simple projects with service_price, we don't need to update the backend
       // The service and price are already set when the project was created
-      if (project?.project_type === 'simple' && project?.service_price) {
+      if (
+        project?.project_type === 'simple' &&
+        (numPrice(project?.service_price) > 0 || numPrice(project?.service_price_eur) > 0)
+      ) {
         // Just navigate to briefing page
         navigate(`/client/${projectId}/briefing`)
         return

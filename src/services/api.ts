@@ -131,10 +131,10 @@ class ApiService {
   }
 
   /** Get or create an unclaimed project so the user can submit requirements and pay (when the one they clicked is already taken). */
-  async startFromCatalog(projectId: string) {
+  async startFromCatalog(projectId: string, catalogCurrency?: 'usd' | 'eur') {
     return this.request<{ success: boolean; data: { _id: string; [k: string]: unknown } }>('/projects/start-from-catalog', {
       method: 'POST',
-      body: JSON.stringify({ projectId }),
+      body: JSON.stringify({ projectId, catalogCurrency }),
     })
   }
 

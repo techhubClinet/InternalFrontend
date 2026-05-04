@@ -83,7 +83,12 @@ export function ClientPaymentPage() {
             typeof p.selected_service === 'object' &&
             (parseAmount(p.selected_service.priceUSD) > 0 || parseAmount(p.selected_service.price) > 0))
         if (hasEur && hasUsd) {
-          setCurrency(getCatalogDisplayCurrency() === 'eur' ? 'eur' : 'usd')
+          const stored = String(p.currency || '').toLowerCase()
+          if (stored === 'eur' || stored === 'usd') {
+            setCurrency(stored as Currency)
+          } else {
+            setCurrency(getCatalogDisplayCurrency() === 'eur' ? 'eur' : 'usd')
+          }
         } else if (hasEur && !hasUsd) {
           setCurrency('eur')
         } else {
@@ -99,8 +104,29 @@ export function ClientPaymentPage() {
 
   const getAmount = (cur: Currency) => {
     if (!project) return 0
-    if (project.custom_quote_amount != null && project.custom_quote_amount > 0) {
-      return project.custom_quote_amount
+    const hasListUsd =
+      parseAmount(project.service_price) > 0 ||
+      (project.selected_service &&
+        typeof project.selected_service === 'object' &&
+        (parseAmount(project.selected_service.priceUSD) > 0 || parseAmount(project.selected_service.price) > 0))
+    const hasListEur =
+      parseAmount(project.service_price_eur) > 0 ||
+      (project.selected_service &&
+        typeof project.selected_service === 'object' &&
+        parseAmount(project.selected_service.priceEUR) > 0)
+    const isSimpleCatalog =
+      project.project_type === 'simple' && (hasListUsd || hasListEur)
+    // Draft checkout writes custom_quote_amount in one currency only; never use it as both USD and EUR.
+    if (
+      project.custom_quote_amount != null &&
+      project.custom_quote_amount > 0 &&
+      !isSimpleCatalog
+    ) {
+      const saved: Currency =
+        String(project.currency || 'usd').toLowerCase() === 'eur' ? 'eur' : 'usd'
+      if (saved === cur) {
+        return parseAmount(project.custom_quote_amount)
+      }
     }
     if (cur === 'eur') {
       // EUR: only show when explicitly set; never use USD amount as EUR
@@ -129,7 +155,11 @@ export function ClientPaymentPage() {
 
   const getServiceName = () => {
     if (!project) return 'Service'
-    if (project.custom_quote_amount != null && project.custom_quote_amount > 0) {
+    if (
+      project.project_type !== 'simple' &&
+      project.custom_quote_amount != null &&
+      project.custom_quote_amount > 0
+    ) {
       return 'Custom Quote'
     }
     if (project.service_name) {

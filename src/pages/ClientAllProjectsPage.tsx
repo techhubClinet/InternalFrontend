@@ -118,7 +118,7 @@ export function ClientAllProjectsPage() {
     if (startingProjectId) return
     setStartingProjectId(templateProjectId)
     try {
-      const res = await api.startFromCatalog(templateProjectId)
+      const res = await api.startFromCatalog(templateProjectId, displayCurrency)
       if (res.success && res.data) {
         const id = (res.data as any)._id || (res.data as any).id
         if (id) navigate(`/client/${id}`)
@@ -179,14 +179,39 @@ export function ClientAllProjectsPage() {
     return 'TBD'
   }
 
+  /** Catalog cards: list prices only so USD/EUR toggle matches checkout (ignore stale checkout totals on templates). */
+  const formatCatalogListPrice = (project: any) => {
+    if (project.project_type === 'simple') {
+      if (displayCurrency === 'eur') {
+        const eur = Number(project.service_price_eur)
+        if (Number.isFinite(eur) && eur > 0) {
+          return `€${eur.toLocaleString()}`
+        }
+        return '—'
+      }
+      if (project.service_price != null && project.service_price !== '') {
+        return `$${Number(project.service_price).toLocaleString()}`
+      }
+      if (project.selected_service && typeof project.selected_service === 'object') {
+        const svc = project.selected_service
+        const usd = Number(svc.priceUSD ?? svc.price)
+        if (Number.isFinite(usd) && usd > 0) return `$${usd.toLocaleString()}`
+      }
+      return 'TBD'
+    }
+    return formatAmount(project)
+  }
+
   const formatDate = (date: string) => {
     return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   const getCatalogSortPrice = (project: any): number | null => {
-    if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
-      const n = Number(project.custom_quote_amount)
-      return Number.isFinite(n) ? n : null
+    if (project.project_type !== 'simple') {
+      if (project.custom_quote_amount != null && project.custom_quote_amount !== '') {
+        const n = Number(project.custom_quote_amount)
+        return Number.isFinite(n) ? n : null
+      }
     }
     if (displayCurrency === 'eur') {
       const eur = Number(project.service_price_eur)
@@ -601,7 +626,7 @@ export function ClientAllProjectsPage() {
                             <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>{project.service_name || 'Service'}</p>
                           </div>
                           <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
-                            <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>{formatAmount(project)}</div>
+                            <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>{formatCatalogListPrice(project)}</div>
                             {project.delivery_timeline && <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Delivery: {project.delivery_timeline}</p>}
                           </div>
                           <p style={{ margin: '0.75rem 0 0', fontSize: '0.8rem', color: '#ea580c', fontWeight: '500' }}>Sign in to buy →</p>
@@ -625,7 +650,7 @@ export function ClientAllProjectsPage() {
                           <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>{project.service_name || 'Service'}</p>
                         </div>
                         <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(226, 232, 240, 0.8)' }}>
-                          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>{formatAmount(project)}</div>
+                          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#ea580c', marginBottom: '0.5rem' }}>{formatCatalogListPrice(project)}</div>
                           {project.delivery_timeline && <p style={{ margin: 0, fontSize: '0.875rem', color: '#64748b' }}>Delivery: {project.delivery_timeline}</p>}
                         </div>
                         {isStarting ? (
