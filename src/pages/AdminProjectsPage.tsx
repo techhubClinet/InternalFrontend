@@ -4,6 +4,14 @@ import { Modal } from '../components/Modal'
 import { NewProjectForm } from '../components/NewProjectForm'
 import { api, getApiBaseUrl } from '../services/api'
 
+/** Storefront catalog rows only — same rules as GET /projects/simple (excludes client orders cloned from “Buy”). */
+function isCatalogTemplateProject(p: any): boolean {
+  if (p?.project_type !== 'simple') return false
+  if (p.is_catalog_template === true) return true
+  const email = typeof p.client_email === 'string' ? p.client_email.trim() : ''
+  return email.length === 0
+}
+
 export function AdminProjectsPage() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false)
   const [projects, setProjects] = useState<any[]>([])
@@ -309,8 +317,8 @@ export function AdminProjectsPage() {
                 }}
               >
                 Predefined Project ({loading ? '...' : (() => {
-                  const simple = projects.filter((p: any) => p.project_type === 'simple')
-                  const keys = new Set(simple.map((p: any) => `${p.name}|${p.service_price ?? p.custom_quote_amount ?? ''}`))
+                  const catalogRows = projects.filter(isCatalogTemplateProject)
+                  const keys = new Set(catalogRows.map((p: any) => `${p.name}|${p.service_price ?? p.custom_quote_amount ?? ''}`))
                   return keys.size
                 })()})
               </button>
@@ -667,7 +675,7 @@ export function AdminProjectsPage() {
               <p>Loading projects...</p>
             </div>
           ) : (() => {
-            const predefinedProjects = projects.filter((p: any) => p.project_type === 'simple')
+            const predefinedProjects = projects.filter(isCatalogTemplateProject)
             const filteredProjects = activeTab === 'paid'
               ? projects.filter((p: any) => p.payment_status === 'paid')
               : predefinedProjects

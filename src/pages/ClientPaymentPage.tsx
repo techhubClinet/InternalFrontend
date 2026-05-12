@@ -329,7 +329,7 @@ export function ClientPaymentPage() {
               fontSize: '1.2rem',
               fontWeight: '600'
             }}>
-              <span style={{ color: '#0f172a' }}>Total:</span>
+              <span style={{ color: '#0f172a' }}>Subtotal (excl. tax):</span>
               <span style={{ color: '#1d4ed8' }}>{symbol}{amount.toLocaleString()}</span>
             </div>
             {(showCurrencyChoice) && (
@@ -337,8 +337,11 @@ export function ClientPaymentPage() {
                 Paying in: {currency === 'eur' ? 'EUR' : 'USD'}
               </div>
             )}
-            <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#64748b' }}>
-              VAT/tax is calculated at Stripe Checkout from your billing country and added on top of the service price shown above.
+            <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: '#64748b', lineHeight: 1.5 }}>
+              On the next screen, Stripe Tax uses your billing address (and whether you buy as a business) to
+              decide if anything is added. Tax is added on top of this subtotal only when Stripe has a rate for
+              that sale (for example EU VAT for many EU consumers). For other countries you may see tax as 0:
+              that is often correct (nothing due in Stripe for that location), not a broken setting.
             </div>
           </div>
 
