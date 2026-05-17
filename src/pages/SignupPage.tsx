@@ -29,26 +29,43 @@ export function SignupPage() {
     // If not authenticated, allow user to stay on signup page
   }, [searchParams, navigate])
 
+  const MIN_PASSWORD_LENGTH = 6
+  const passwordLen = formData.password.trim().length
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
 
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match')
+    const name = formData.name.trim()
+    const email = formData.email.trim().toLowerCase()
+    const password = formData.password.trim()
+    const confirmPassword = formData.confirmPassword.trim()
+
+    if (!name || !email) {
+      setError('Please enter your name and email')
       return
     }
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setError(
+        password.length === 0
+          ? `Please enter a password (at least ${MIN_PASSWORD_LENGTH} characters).`
+          : `Password must be at least ${MIN_PASSWORD_LENGTH} characters (you entered ${password.length}).`
+      )
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match. Check both fields use the same password.')
       return
     }
 
     try {
       setLoading(true)
       const response: any = await api.signup({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
+        name,
+        email,
+        password,
       })
 
       if (response.success) {
@@ -267,9 +284,11 @@ export function SignupPage() {
               <input
                 type="password"
                 required
+                minLength={MIN_PASSWORD_LENGTH}
+                autoComplete="new-password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                placeholder="Create a password"
+                placeholder="At least 6 characters"
                 style={{
                   width: '100%',
                   padding: '0.875rem 1rem',
@@ -292,6 +311,17 @@ export function SignupPage() {
                   e.target.style.boxShadow = 'none'
                 }}
               />
+              <p
+                style={{
+                  margin: '0.4rem 0 0',
+                  fontSize: '0.8rem',
+                  color: passwordLen > 0 && passwordLen < MIN_PASSWORD_LENGTH ? '#dc2626' : '#6b7280',
+                }}
+              >
+                {passwordLen >= MIN_PASSWORD_LENGTH
+                  ? '✓ Password length OK'
+                  : `${passwordLen}/${MIN_PASSWORD_LENGTH} characters minimum`}
+              </p>
             </div>
 
             <div style={{ marginBottom: '2rem' }}>
@@ -307,6 +337,8 @@ export function SignupPage() {
               <input
                 type="password"
                 required
+                minLength={MIN_PASSWORD_LENGTH}
+                autoComplete="new-password"
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                 placeholder="Confirm your password"
